@@ -6,9 +6,11 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setAnimationLoop( animate );
-
 document.body.appendChild(renderer.domElement);
+
+//Load texture for the sun(local image)
+const textureLoader = new THREE.TextureLoader();
+const sunTexture = textureLoader.load('assets/data/2k_sun.jpg')
 
 const geometries = new Map();
 const materials = new Map();
@@ -16,16 +18,31 @@ const meshes = new Map();
 const lights = new Map();
 const pathes = new Map();
 
-//Load texture for the sun(local image)
-const textureLoader = new THREE.TextureLoader();
-const sunTexture = textureLoader.load('assets/data/2k_sun.jpg')
-
 
 // Add a light source to represent the sun
 const sunLight = new THREE.PointLight(0xFFFF00, 1, 500, 2);
 sunLight.position.set(0, 100, 0); // Position the light (the sun)
 scene.add(sunLight);
 
+// Add the visual representation of the sun
+const sunGeometry = new THREE.SphereGeometry(10, 32, 32); // Radius 10
+const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });
+
+const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+sun.position.set(0, 100, 0);
+scene.add(sun);
+
+// Add a ground plane to cast shadows
+const groundGeometry = new THREE.PlaneGeometry(500, 500);
+const groundMaterial = new THREE.ShadowMaterial({ opacity: 0.5 });
+const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+ground.rotation.x = - Math.PI / 2; // Rotate to lie flat
+ground.position.y = -5;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Enable shadows for the sun light
+sunLight.castShadow = true;
 //const geometry = new THREE.BoxGeometry( 1, 1, 1 );
 //const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
 //const cube = new THREE.Mesh( geometry, material );

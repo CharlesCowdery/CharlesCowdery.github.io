@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { Vector3 as Vec3 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+import * as ORBIT from "./orbital_mech.js"
+
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
@@ -62,14 +64,48 @@ function van_update(){
 
 // charles functions
 
-async function charles(){
-
+var path_update_queue = [];
+function registerPathUpdate(path_name){
+    path_update_queue.push(path_name);
 }
 
+function registerPath(path_name){
+    pathes.set(path_name,new THREE.Path());
+    geometries.set(path_name,new THREE.BufferGeometry());
+}
+
+async function charles(){
+
+    registerPath("jupiter orbit");
+
+    var points = [];
+    for(let i = 0; i < 10 ; i++){
+        var point = (ORBIT.kepler_orbital_position(ORBIT.sets["earth"],i/10));
+        pathes.get("jupiter orbit").lineTo(point[0]*10,point[1]*10,point[2]*10);
+    }
+
+
+    materials.set("line basic",new THREE.LineBasicMaterial({color:0x00ff00}))
+
+    meshes.set("jupiter orbit", new THREE.Line(geometries.get("jupiter orbit"),materials.get("line basic")));
+
+    registerPathUpdate("jupiter orbit");
+    
+}
+
+var t = 0
+
 function charles_update(){
-    pathes.forEach(p=>{
-        meshes.u
+    t++;
+    var point = (ORBIT.kepler_orbital_position(ORBIT.sets["jupiter"],t*10));
+
+    meshes.get("sun").position.set(point[0]*10,point[1]*10,point[2]*10)
+
+    path_update_queue.forEach(path_name=>{
+        geometries.get(path_name).setFromPoints(pathes.get(path_name).getPoints());
+        console.log(geometries.get(path_name),pathes.get(path_name).getPoints());
     })
+    path_update_queue = [];
 }
 
 //
@@ -103,14 +139,17 @@ async function initialize(){
 camera.position.set(0,200,200);
 
 function animate() {
-    requestAnimationFrame(animate);
 
   //cube.rotation.x += 0.01;
   //cube.rotation.y += 0.01;
 
+  van_update();
+  charles_update();
+
   controls.update();
 
   renderer.render( scene, camera );
+    //requestAnimationFrame(animate);
 
 }
 

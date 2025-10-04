@@ -19,7 +19,7 @@ neptune  30.06992276      0.00859048      1.77004347      -55.12002969     44.96
           0.00026291      0.00005105      0.00035372      218.45945325     -0.32241464     -0.00508664`
 
 var units = planet_data.split("\n").map(v=>v.replace(/ +/gm," ").split([" "]))
-var sets = {}
+export var sets = {}
 for(let i = 0; i < units.length;i+=2){
     var body = units[i][0];
     var t1 = units[i].slice(1).map(v=>parseFloat(v));
@@ -52,52 +52,59 @@ for(let i = 0; i < units.length;i+=2){
     }
 }
 
-function kepler_orbital_position(orbit_data,time_eph){
+export function kepler_orbital_position(orbit_data,time_eph){
 
     var time = (time_eph-2451545)/36525;
 
-    var a =  orbit_data.axis.initial                 + orbit_data.axis.delta                 *time;
-    var e =  orbit_data.eccentricity.initial         + orbit_data.eccentricity.delta          *time;
-    var I =  orbit_data.inclination.initial          + orbit_data.inclination.delta           *time;
-    var mL = orbit_data.mean_longitude.initial       + orbit_data.mean_longitude.delta        *time;
-    var Lp = orbit_data.longitude_perihelion.initial + orbit_data.longitude_perihelion.delta  *time;
-    var La = orbit_data.longitude_ascending.initial  + orbit_data.longitude_ascending.delta   *time;
+    var a =  orbit_data.axis.initial                 + orbit_data.axis.delta                 *time//au;
+    var e =  orbit_data.eccentricity.initial         + orbit_data.eccentricity.delta          *time//radians;
+    var I =  orbit_data.inclination.initial          + orbit_data.inclination.delta           *time//degrees;
+    var mL = orbit_data.mean_longitude.initial       + orbit_data.mean_longitude.delta        *time//degrees;
+    var Lp = orbit_data.longitude_perihelion.initial + orbit_data.longitude_perihelion.delta  *time//degrees
+    var La = orbit_data.longitude_ascending.initial  + orbit_data.longitude_ascending.delta   *time//degrees
 
+    I = I/180*Math.PI;
+    mL = mL/180*Math.PI;
+    Lp = Lp/180*Math.PI;
+    La = La/180*Math.PI;
 
-    var e_star = e*180/Math.PI;
 
     var perihelion = Lp-La;
     var mean_anomaly = mL-Lp
 
-    var anomaly = mean_anomaly+e_star*Math.sin(mean_anomaly);
+    var anomaly = mean_anomaly+e*Math.sin(mean_anomaly);
     var delta_anomaly=1;
     var delta_mean_anomaly = 0;
     let i = 0;
 
-    console.log(anomaly,mean_anomaly)
+    //console.log(anomaly,mean_anomaly)
+
+    var a1 = anomaly;
+    var a2 = mean_anomaly;
 
     while(Math.abs(delta_anomaly)>1e-10){
-        //console.log(anomaly)
-        delta_mean_anomaly=mean_anomaly-(anomaly-e_star*Math.sin(anomaly));
-        delta_anomaly=delta_mean_anomaly/(1-e*Math.cos(anomaly));
+        delta_mean_anomaly = (mean_anomaly-(anomaly-e*Math.sin(anomaly)));
+        delta_anomaly = delta_mean_anomaly/(1-e*Math.cos(anomaly));
+        //console.log(delta_mean_anomaly,delta_anomaly,anomaly)
         anomaly = delta_anomaly+anomaly;
-        i++;
-        if(i>1000){
-            break;
-        }
     }
 
-    console.log(anomaly)
+    console.log(mL,La,a2,a1,anomaly)
+    
 
-    mean_anomaly=anomaly-e_star*Math.sin(anomaly);
+    mean_anomaly=anomaly-e*Math.sin(anomaly);
 
     var x_prime = a*(Math.cos(anomaly)-e);
     var y_prime = a*Math.sqrt(1-e*e)*Math.sin(anomaly);
     var z_prime = 0;
 
-    var x_eccl = Math.cos(perihelion)*Math.cos(La)*x_prime+Math.sin(perihelion)*Math.sin(perihelion)*Math.cos(I)*y_prime;
-    var y_eccl = Math.cos(perihelion)*Math.sin(La)*x_prime+Math.sin(perihelion)*Math.cos(perihelion)*Math.cos(I)*y_prime;
-    var z_eccl = Math.sin(perihelion)*Math.sin(I)*x_prime+Math.cos(perihelion)*Math.sin(I)*y_prime;
+var x_eccl = (Math.cos(La)*Math.cos(perihelion) - Math.sin(La)*Math.sin(perihelion)*Math.cos(I)) * x_prime
+           + (-Math.cos(La)*Math.sin(perihelion) - Math.sin(La)*Math.cos(perihelion)*Math.cos(I)) * y_prime;
+
+var y_eccl = (Math.sin(La)*Math.cos(perihelion) + Math.cos(La)*Math.sin(perihelion)*Math.cos(I)) * x_prime
+           + (-Math.sin(La)*Math.sin(perihelion) + Math.cos(La)*Math.cos(perihelion)*Math.cos(I)) * y_prime;
+
+var z_eccl = (Math.sin(perihelion)*Math.sin(I)) * x_prime + (Math.cos(perihelion)*Math.sin(I)) * y_prime;
 
     return [x_eccl,y_eccl,z_eccl];
 }
@@ -107,7 +114,7 @@ console.log(kepler_orbital_position(sets["jupiter"],1002))
 
 console.log("yoo")
 
-
+/*
 const sunGeometry = new THREE.SphereGeometry(10,32,32);
 const sunMaterial = new THREE.MeshBasicMaterial({color:0xfff00});
 const sun = new THREE.Mesh(sunGeometry,sunMaterial);
@@ -162,3 +169,4 @@ function animate() {
 }
 
 animate();
+*/

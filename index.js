@@ -3,19 +3,20 @@ import { Vector3 as Vec3 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
-renderer.setSize( window.innerWidth, window.innerHeight );
-renderer.setAnimationLoop( animate );
-document.body.appendChild( renderer.domElement );
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+//Load texture for the sun(local image)
+const textureLoader = new THREE.TextureLoader();
+const sunTexture = textureLoader.load('assets/data/2k_sun.jpg')
 
 
-const geometries = new Map();
-const materials = new Map();
-const meshes = new Map();
-const lights = new Map();
-const pathes = new Map();
+// Add a light source to represent the sun
+const sunLight = new THREE.PointLight(0xFFFF00, 1, 500, 2);
+sunLight.position.set(0, 100, 0); // Position the light (the sun)
+scene.add(sunLight);
 
 //const geometry = new THREE.BoxGeometry( 1, 1, 1 );
 //const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
@@ -53,6 +54,7 @@ async function initialize(){
 camera.position.set(0,20,100);
 
 function animate() {
+    requestAnimationFrame(animate);
 
   //cube.rotation.x += 0.01;
   //cube.rotation.y += 0.01;

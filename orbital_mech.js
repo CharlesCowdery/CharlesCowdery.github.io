@@ -104,24 +104,9 @@ function kepler_orbital_position(orbit_data,time_eph){
 
 
 console.log(kepler_orbital_position(sets["jupiter"],1002))
-import THREE from 'three'
 
 console.log("yoo")
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
 
-const camera = new THREE.PerspectiveCamera(
-    75, window.innerWidth / window.innerHeight, 0.1, 1000
-);
-camera.position.z = 300;
-
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-const light = new THREE.PointLight(0xffffff,1);
-light.position.set(0,0,0);
-scene.add(light);
 
 const sunGeometry = new THREE.SphereGeometry(10,32,32);
 const sunMaterial = new THREE.MeshBasicMaterial({color:0xfff00});

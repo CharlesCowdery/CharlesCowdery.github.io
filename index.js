@@ -147,9 +147,23 @@ async function van(){
 
 //van's code
 
+function van_update(){
+
+}
+
+// charles functions
+
 async function charles(){
 
 }
+
+function charles_update(){
+    pathes.forEach(p=>{
+        meshes.u
+    })
+}
+
+//
 
 //deleted async initialize
 
@@ -157,6 +171,34 @@ camera.position.set(0,100,500);
 
 
 //Animation loop
+async function initialize(){
+    geometries.set("basic sphere", new THREE.IcosahedronGeometry(1,10));
+    materials .set("green matte", new THREE.MeshPhongMaterial({flatShading:true, color:0x00ff00}));
+    //meshes    .set("test sphere", new THREE.Mesh(geometries.get("basic sphere"),materials.get("green matte")));
+    
+    textures.set("earth",textureLoader.load("./assets/data/2k_earth_daymap.jpg"));
+
+
+    lights.set("dirlight", new THREE.DirectionalLight( 0xffffff, 3 ));
+	lights.get("dirlight").position.set( 2, 2, 2 );
+    lights.set("ambient", new THREE.AmbientLight(0x404040,1));
+
+
+    //let neighborhood = compute_neighbors(geometries.get("basic sphere")); 
+
+    //console.log(neighborhood)
+
+    //sim = new EulerSim();
+    //await sim.init(neighborhood.tris.length);
+    van();
+    charles();
+
+    meshes.forEach(v=>scene.add(v));
+    lights.forEach(v=>scene.add(v));
+}
+
+camera.position.set(0,200,200);
+
 function animate() {
     requestAnimationFrame(animate);
 

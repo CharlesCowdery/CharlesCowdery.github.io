@@ -1,0 +1,36 @@
+body {
+    margin:0;
+    font-family:Verdana, Geneva, Tahoma, sans-serif;
+}
+#clock-wrapper{
+background-color: black;
+width:auto; 
+height:3rem;
+border-radius: 1rem  ;
+margin-left:1rem;
+margin-right:1rem;
+padding-left: 1rem;
+padding-right:1rem;
+font-size: 1.5rem;
+line-height: 0;
+}
+
+#time{
+    color:white
+}
+
+.forward-arrow{
+    color:white;
+    font-size: 2rem;
+}
+
+.time-plane{
+    width:100vw;
+    height: 5rem;
+    background-color: #333;
+    border-bottom: 0.5rem solid #3a3a3a;
+    display: flex;
+    justify-content: left;
+    align-items: center;
+
+}

@@ -128,15 +128,6 @@ async function van(){
     
     //no speed and velocity
 
-    lights.set("sun" , new THREE.PointLight(0xFFFF00, 1, 500, 2));
-    lights.get("sun").position.set(0, 0, 0); // Position the light (the sun)
-    lights.get("sun").castShadow = true;
-
-    textures.set("sun",textureLoader.load('assets/data/2k_sun.jpg'));
-    geometries.set("sun",new THREE.SphereGeometry(10, 32, 32));
-    materials.set("sun",new THREE.MeshBasicMaterial({ color: 0xFFFF00 }));
-    meshes.set("sun", new THREE.Mesh(geometries.get("sun"),materials.get("sun")));
-    meshes.get("sun").position.set(0,100,0);
     // Add the visual representation of the sun
 
     geometries.set("ground", new THREE.PlaneGeometry(500, 500));
@@ -168,32 +159,86 @@ function registerPath(path_name){
     geometries.set(path_name,new THREE.BufferGeometry());
 }
 
+var orbital_scalar = 30;
+
+function dist(a1,a2){
+    return Math.sqrt(Math.pow(a1[0]-a2[0],2)+Math.pow(a1[1]-a2[1],2)+Math.pow(a1[2]-a2[2],2))
+}
+
 async function charles(){
 
     registerPath("jupiter orbit");
 
     var points = [];
-    for(let i = 0; i < 10 ; i++){
-        var point = (ORBIT.kepler_orbital_position(ORBIT.sets["earth"],i/10));
-        pathes.get("jupiter orbit").lineTo(point[0]*10,point[1]*10,point[2]*10);
-    }
-
-
     materials.set("line basic",new THREE.LineBasicMaterial({color:0x00ff00}))
 
-    meshes.set("jupiter orbit", new THREE.Line(geometries.get("jupiter orbit"),materials.get("line basic")));
+
+
+    planets.forEach(planet=>{
+        var name = planet.name.toLowerCase();
+        registerPath(name+" orbit");
+        var hypothetical_time = starting_date;
+        var startpos = ORBIT.kepler_orbital_position(ORBIT.sets[name],ORBIT.date_to_kepler_time(hypothetical_time));
+        var orbital_position = [0,0,0];
+        var prev_dist = 0;
+        var cur_dist = 0;
+        var prev_delta = 0;
+        var cur_delta = 0;
+        var past_half = false;
+        var i = 0;
+        while(i<10000 || prev_delta>cur_delta){
+            i++;
+            hypothetical_time.setTime(hypothetical_time.getTime()+100000000);
+            orbital_position = ORBIT.kepler_orbital_position(ORBIT.sets[name],ORBIT.date_to_kepler_time(hypothetical_time));
+            
+            pathes.get(name+" orbit").lineTo(
+                orbital_position[0]*orbital_scalar,
+                orbital_position[1]*orbital_scalar,
+                orbital_position[2]*orbital_scalar
+            )
+            prev_delta = cur_dist-prev_dist;
+            prev_dist = cur_dist
+            cur_dist = dist(startpos,orbital_position)
+            cur_delta = prev_dist-cur_dist
+            if(i > 100000) break;
+        }
+        meshes.set(name+" orbit", new THREE.Line(geometries.get(name+" orbit"),materials.get("line basic")));
+
+        registerPathUpdate(name+" orbit");
+    })
+    
+
+
+
 
     registerPathUpdate("jupiter orbit");
     
 }
 
-var t = 0
+var starting_date = new Date(2025,1,1);
+var tick_speed_seconds = 100000;
+var time = starting_date;
+var time_julian = 0;
+
+function formatDateClassic(date) {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // months 0-11
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hour = String(date.getUTCHours()).padStart(2, '0');
+    const minute = String(date.getUTCMinutes()).padStart(2, '0');
+    const second = String(date.getUTCSeconds()).padStart(2, '0');
+
+    return `${year}:${month}:${day} ${hour}:${minute}:${second}`;
+}
 
 function charles_update(){
-    t++;
-    var point = (ORBIT.kepler_orbital_position(ORBIT.sets["jupiter"],t*10));
+    
+    time.setTime(time.getTime()+tick_speed_seconds*1000);
+    time_julian = ORBIT.date_to_kepler_time(time);
 
-    meshes.get("sun").position.set(point[0]*10,point[1]*10,point[2]*10)
+    document.getElementById("time").innerText=formatDateClassic(time);
+
+    var point = (ORBIT.kepler_orbital_position(ORBIT.sets["jupiter"],time_julian));
 
     path_update_queue.forEach(path_name=>{
         geometries.get(path_name).setFromPoints(pathes.get(path_name).getPoints());
@@ -202,7 +247,11 @@ function charles_update(){
     path_update_queue = [];
 
     planets.forEach(planet=>{
-        console.log(planet);
+        var name = planet.name.toLowerCase();
+        var orbital_position = ORBIT.kepler_orbital_position(ORBIT.sets[name],time_julian);
+        planet.mesh.position.x = orbital_position[0]*orbital_scalar;
+        planet.mesh.position.y = orbital_position[1]*orbital_scalar;
+        planet.mesh.position.z = orbital_position[2]*orbital_scalar;
     })
 }
 

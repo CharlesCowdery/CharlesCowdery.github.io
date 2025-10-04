@@ -1,10 +1,10 @@
-import * as THREE from 'three/webgpu';
+import * as THREE from 'three';
 import { Vector3 as Vec3 } from 'three';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
-const renderer = new THREE.WebGPURenderer();
+const renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
 renderer.setAnimationLoop( animate );
 document.body.appendChild( renderer.domElement );
@@ -34,12 +34,12 @@ async function initialize(){
 	lights.get("dirlight").position.set( 2, 2, 2 );
     lights.set("ambient", new THREE.AmbientLight(0x404040,1));
 
-    let neighborhood = compute_neighbors(geometries.get("basic sphere")); 
+    //let neighborhood = compute_neighbors(geometries.get("basic sphere")); 
 
-    console.log(neighborhood)
+    //console.log(neighborhood)
 
-    sim = new EulerSim();
-    await sim.init(neighborhood.tris.length);
+    //sim = new EulerSim();
+    //await sim.init(neighborhood.tris.length);
 
     meshes.forEach((v,k)=>{scene.add(v)});
     lights.forEach(v=>scene.add(v));

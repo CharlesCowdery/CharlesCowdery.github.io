@@ -1,17 +1,17 @@
-const https = require("https");
+const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
 // Path to your PFX file and password
-const pfxPath = "C:/Users/Charlie/Documents/Projects/Personal/basis for thing/cert/localhost.pfx";
-const pfxPassword = "YourPasswordHere";
+//const pfxPath = "C:/Users/Charlie/Documents/Projects/Personal/basis for thing/cert/localhost.pfx";
+//const pfxPassword = "YourPasswordHere";
+//
+//const options = {
+//  pfx: fs.readFileSync(pfxPath),
+//  passphrase: pfxPassword
+//};
 
-const options = {
-  pfx: fs.readFileSync(pfxPath),
-  passphrase: pfxPassword
-};
-
-const server = https.createServer(options,(req,res)=>{
+const server = http.createServer((req,res)=>{
     const filePath = path.join(__dirname, req.url);
 
   // Check if file exists

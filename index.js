@@ -8,6 +8,12 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
+const geometries = new Map();
+const materials = new Map();
+const meshes = new Map();
+const lights = new Map();
+const pathes = new Map();
+
 //Load texture for the sun(local image)
 const textureLoader = new THREE.TextureLoader();
 const sunTexture = textureLoader.load('assets/data/2k_sun.jpg')

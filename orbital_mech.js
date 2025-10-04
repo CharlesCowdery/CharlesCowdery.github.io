@@ -52,13 +52,16 @@ for(let i = 0; i < units.length;i+=2){
     }
 }
 
-function kepler_orbital_position(orbit_data,time){
-    var a = orbit_data.axis.initial + orbit_data.axis.delta*time;
-    var e = orbit_data.eccentricity.initial+orbit_data.eccentricity.delta*time;
-    var I = orbit_data.inclination.initial+orbit_data.inclination.delta*time;
-    var mL = orbit_data.mean_longitude.initial+orbit_data.mean_longitude.delta*time;
-    var Lp = orbit_data.longitude_perihelion.initial+orbit_data.longitude_perihelion.delta*time;
-    var La = orbit_data.longitude_ascending.initial+orbit_data.longitude_ascending.delta*time;
+function kepler_orbital_position(orbit_data,time_eph){
+
+    var time = (time_eph-2451545)/36525;
+
+    var a =  orbit_data.axis.initial                 + orbit_data.axis.delta                 *time;
+    var e =  orbit_data.eccentricity.initial         + orbit_data.eccentricity.delta          *time;
+    var I =  orbit_data.inclination.initial          + orbit_data.inclination.delta           *time;
+    var mL = orbit_data.mean_longitude.initial       + orbit_data.mean_longitude.delta        *time;
+    var Lp = orbit_data.longitude_perihelion.initial + orbit_data.longitude_perihelion.delta  *time;
+    var La = orbit_data.longitude_ascending.initial  + orbit_data.longitude_ascending.delta   *time;
 
 
     var e_star = e*180/Math.PI;
@@ -84,6 +87,8 @@ function kepler_orbital_position(orbit_data,time){
         }
     }
 
+    console.log(anomaly)
+
     mean_anomaly=anomaly-e_star*Math.sin(anomaly);
 
     var x_prime = a*(Math.cos(anomaly)-e);
@@ -98,4 +103,4 @@ function kepler_orbital_position(orbit_data,time){
 }
 
 
-console.log(kepler_orbital_position(sets["jupiter"],5.10001))
+console.log(kepler_orbital_position(sets["jupiter"],1002))

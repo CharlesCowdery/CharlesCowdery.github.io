@@ -20,13 +20,7 @@ const textures = new Map();
 
 //Load texture for the sun(local image)
 const textureLoader = new THREE.TextureLoader();
-const sunTexture = textureLoader.load('assets/data/2k_sun.jpg')
 
-
-// Add a light source to represent the sun
-const sunLight = new THREE.PointLight(0xFFFF00, 1, 500, 2);
-sunLight.position.set(0, 100, 0); // Position the light (the sun)
-scene.add(sunLight);
 
 //const geometry = new THREE.BoxGeometry( 1, 1, 1 );
 //const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
@@ -40,10 +34,36 @@ scene.add(sunLight);
 
     const controls = new OrbitControls( camera, renderer.domElement );
 
+async function van(){
+    lights.set("sun" , new THREE.PointLight(0xFFFF00, 1, 500, 2));
+    lights.get("sun").position.set(0, 0, 0); // Position the light (the sun)
+    lights.get("sun").castShadow = true;
+
+    textures.set("sun",textureLoader.load('assets/data/2k_sun.jpg'));
+    geometries.set("sun",new THREE.SphereGeometry(10, 32, 32));
+    materials.set("sun",new THREE.MeshBasicMaterial({ color: 0xFFFF00 }));
+    meshes.set("sun", new THREE.Mesh(geometries.get("sun"),materials.get("sun")));
+    meshes.get("sun").position.set(0,100,0);
+    // Add the visual representation of the sun
+
+    geometries.set("ground", new THREE.PlaneGeometry(500, 500));
+    materials.set("ground",new THREE.ShadowMaterial({ opacity: 0.5 }));
+    meshes.set("ground", new THREE.Mesh(geometries.get("ground"), materials.get("ground")));
+    meshes.get("ground").rotation.x = - Math.PI / 2;
+    meshes.get("ground").position.y = -5;
+    meshes.get("ground").receiveShadow = true;
+
+// Enable shadows for the sun light
+}
+
+async function charles(){
+
+}
+
 async function initialize(){
     geometries.set("basic sphere", new THREE.IcosahedronGeometry(1,10));
     materials .set("green matte", new THREE.MeshPhongMaterial({flatShading:true, color:0x00ff00}));
-    meshes    .set("test sphere", new THREE.Mesh(geometries.get("basic sphere"),materials.get("green matte")));
+    //meshes    .set("test sphere", new THREE.Mesh(geometries.get("basic sphere"),materials.get("green matte")));
     
     textures.set("earth",textureLoader.load("./assets/data/2k_earth_daymap.jpg"));
 
@@ -59,12 +79,14 @@ async function initialize(){
 
     //sim = new EulerSim();
     //await sim.init(neighborhood.tris.length);
+    van();
+    charles();
 
     meshes.forEach((v,k)=>{scene.add(v)});
     lights.forEach(v=>scene.add(v));
 }
 
-camera.position.set(0,20,100);
+camera.position.set(0,200,200);
 
 function animate() {
     requestAnimationFrame(animate);

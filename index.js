@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Vector3 as Vec3 } from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
@@ -25,6 +26,8 @@ const pathes = new Map();
     const hash_u32 = new Uint32Array(hash_buf);
 
 
+    const controls = new OrbitControls( camera, renderer.domElement );
+
 async function initialize(){
     geometries.set("basic sphere", new THREE.IcosahedronGeometry(1,10));
     materials .set("green matte", new THREE.MeshPhongMaterial({flatShading:true, color:0x00ff00}));
@@ -33,6 +36,7 @@ async function initialize(){
     lights.set("dirlight", new THREE.DirectionalLight( 0xffffff, 3 ));
 	lights.get("dirlight").position.set( 2, 2, 2 );
     lights.set("ambient", new THREE.AmbientLight(0x404040,1));
+
 
     //let neighborhood = compute_neighbors(geometries.get("basic sphere")); 
 
@@ -45,17 +49,18 @@ async function initialize(){
     lights.forEach(v=>scene.add(v));
 }
 
-camera.position.z = 5;
+camera.position.set(0,20,100);
 
 function animate() {
 
   //cube.rotation.x += 0.01;
   //cube.rotation.y += 0.01;
 
+  controls.update();
+
   renderer.render( scene, camera );
 
 }
-
 
 
 initialize();

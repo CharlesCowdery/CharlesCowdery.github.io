@@ -56,9 +56,25 @@ async function van(){
 // Enable shadows for the sun light
 }
 
+function van_update(){
+
+}
+
+// charles functions
+
+
+
 async function charles(){
 
 }
+
+function charles_update(){
+    pathes.forEach(p=>{
+        meshes.u
+    })
+}
+
+//
 
 async function initialize(){
     geometries.set("basic sphere", new THREE.IcosahedronGeometry(1,10));
@@ -82,7 +98,7 @@ async function initialize(){
     van();
     charles();
 
-    meshes.forEach((v,k)=>{scene.add(v)});
+    meshes.forEach(v=>scene.add(v));
     lights.forEach(v=>scene.add(v));
 }
 

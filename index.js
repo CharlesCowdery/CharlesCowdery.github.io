@@ -62,8 +62,6 @@ function van_update(){
 
 // charles functions
 
-
-
 async function charles(){
 
 }

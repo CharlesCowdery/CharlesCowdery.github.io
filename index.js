@@ -45,6 +45,7 @@ async function initialize(){
     meshes    .set("test sphere", new THREE.Mesh(geometries.get("basic sphere"),materials.get("green matte")));
     
     textures.set("earth",textureLoader.load("./assets/data/2k_earth_daymap.jpg"));
+    
 
 
     lights.set("dirlight", new THREE.DirectionalLight( 0xffffff, 3 ));

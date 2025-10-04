@@ -113,7 +113,7 @@ var z_eccl = (Math.sin(perihelion)*Math.sin(I)) * x_prime + (Math.cos(perihelion
 console.log(kepler_orbital_position(sets["jupiter"],1002))
 
 //tf7fd7tfd97rct87
-
+/*
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
 
 console.log("Planetary orbit simulation starting...");
@@ -201,3 +201,4 @@ function animate() {
 }
 
 animate();
+*/

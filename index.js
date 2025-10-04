@@ -58,6 +58,7 @@ addToScene(scene)
     scene.add(this.mesh);
 }
 update(){
+
 }
 }
 
@@ -197,6 +198,10 @@ function charles_update(){
         //console.log(geometries.get(path_name),pathes.get(path_name).getPoints());
     })
     path_update_queue = [];
+
+    planets.forEach(planet=>{
+        console.log(planet);
+    })
 }
 
 //
@@ -245,7 +250,7 @@ function animate() {
     planets.forEach(planet=>{
         planet.update()
     } );
-    sun.update();
+    //sun.update();
 
     //updates controls and render
     controls.update();
@@ -264,5 +269,4 @@ function animate() {
 }
 initialize();
 //animate();
-console.log(planets)
 

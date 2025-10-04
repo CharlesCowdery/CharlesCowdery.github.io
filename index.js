@@ -5,18 +5,22 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
+renderer.setAnimationLoop(animate)
 renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+renderer.setAnimationLoop( animate );
 
-//Load texture for the sun(local image)
-const textureLoader = new THREE.TextureLoader();
-const sunTexture = textureLoader.load('assets/data/2k_sun.jpg')
+document.body.appendChild(renderer.domElement);
 
 const geometries = new Map();
 const materials = new Map();
 const meshes = new Map();
 const lights = new Map();
 const pathes = new Map();
+const textures = new Map();
+
+//Load texture for the sun(local image)
+const textureLoader = new THREE.TextureLoader();
+const sunTexture = textureLoader.load('assets/data/2k_sun.jpg')
 
 
 // Add a light source to represent the sun
@@ -41,6 +45,9 @@ async function initialize(){
     materials .set("green matte", new THREE.MeshPhongMaterial({flatShading:true, color:0x00ff00}));
     meshes    .set("test sphere", new THREE.Mesh(geometries.get("basic sphere"),materials.get("green matte")));
     
+    textures.set("earth",textureLoader.load("./assets/data/2k_earth_daymap.jpg"));
+
+
     lights.set("dirlight", new THREE.DirectionalLight( 0xffffff, 3 ));
 	lights.get("dirlight").position.set( 2, 2, 2 );
     lights.set("ambient", new THREE.AmbientLight(0x404040,1));

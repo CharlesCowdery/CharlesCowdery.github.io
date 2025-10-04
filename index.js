@@ -9,9 +9,7 @@ import * as ORBIT from "./orbital_mech.js"
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
-renderer.setAnimationLoop(animate)
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setAnimationLoop( animate );
 
 
 // Add a light source to represent the sun
@@ -40,15 +38,12 @@ const textureLoader = new THREE.TextureLoader();
 //van's code
 
 class CelestialObject{
-    constructor(name, size, texture,type='planet',distanceFromSun){
+    constructor(name, size, texture,distanceFromSun){
         this.name = name;
         this.size = size;
         this.texture = texture;
-        this.type = type;
-
         this.distanceFromSun = distanceFromSun;
     }
-
 createMesh() 
 {
     let geometry = new THREE.SphereGeometry(this.size, 32, 32);
@@ -62,14 +57,16 @@ addToScene(scene)
 {
     scene.add(this.mesh);
 }
+update(){
+}
 }
 
-async function createCelestrialObjects(){
+async function loadTextures(){
     const textureLoader = new THREE.TextureLoader();
     const sunTexture = await textureLoader.loadAsync('assets/data/2k_sun.jpg')
     const mercuryTexture = await textureLoader.loadAsync('assets/data/2k_mercury.jpg')
-    const venusTexture = await textureLoader.loadAsync('assets/data/2k_venus.jpg')
-    const earthTexture = await textureLoader.loadAsync('assets/data/2k_earth.jpg')
+    const venusTexture = await textureLoader.loadAsync('assets/data/2k_venus_atmosphere.jpg')
+    const earthTexture = await textureLoader.loadAsync('assets/data/2k_earth_daymap.jpg')
     const marsTexture = await textureLoader.loadAsync('assets/data/2k_mars.jpg')
     const jupiterTexture = await textureLoader.loadAsync('assets/data/2k_jupiter.jpg')
     const saturnTexture = await textureLoader.loadAsync('assets/data/2k_saturn.jpg')
@@ -111,6 +108,8 @@ async function createScene() {
     } catch (error) {
     console.error("Error loading textures or creating scene:", error);
     }
+        console.log("planets created")
+
     console.log(planets)
 }   
 
@@ -144,6 +143,7 @@ async function van(){
     meshes.get("ground").position.y = -5;
     meshes.get("ground").receiveShadow = true;
 
+    await createScene();
 // Enable shadows for the sun light
 }
 
@@ -194,7 +194,7 @@ function charles_update(){
 
     path_update_queue.forEach(path_name=>{
         geometries.get(path_name).setFromPoints(pathes.get(path_name).getPoints());
-        console.log(geometries.get(path_name),pathes.get(path_name).getPoints());
+        //console.log(geometries.get(path_name),pathes.get(path_name).getPoints());
     })
     path_update_queue = [];
 }
@@ -226,20 +226,25 @@ async function initialize(){
 
     //sim = new EulerSim();
     //await sim.init(neighborhood.tris.length);
-    van();
-    charles();
+    await van();
+    await charles();
 
     meshes.forEach(v=>scene.add(v));
     lights.forEach(v=>scene.add(v));
+    //animate()
+    renderer.setAnimationLoop(animate)
+
 }
 
 camera.position.set(0,200,200);
 
+
 function animate() {
 
     //updates every celestial obj
-
-    planets.forEach(planet=> planet.update());
+    planets.forEach(planet=>{
+        planet.update()
+    } );
     sun.update();
 
     //updates controls and render
@@ -257,6 +262,7 @@ function animate() {
     //requestAnimationFrame(animate);
 
 }
+initialize();
+//animate();
+console.log(planets)
 
-animate();
-createScene();

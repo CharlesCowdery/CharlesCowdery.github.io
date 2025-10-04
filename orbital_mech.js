@@ -89,7 +89,7 @@ export function kepler_orbital_position(orbit_data,time_eph){
         anomaly = delta_anomaly+anomaly;
     }
 
-    console.log(mL,La,a2,a1,anomaly)
+   // console.log(mL,La,a2,a1,anomaly)
     
 
     mean_anomaly=anomaly-e*Math.sin(anomaly);

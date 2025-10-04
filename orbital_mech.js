@@ -1,7 +1,7 @@
 
 //`               a              e               I                L            long.peri.      long.node.`
 //`           au, au/Cy     rad, rad/Cy     deg, deg/Cy      deg, deg/Cy      deg, deg/Cy     deg, deg/Cy`
-var planet_data = `Mercury   0.38709927      0.20563593      7.00497902      252.25032350     77.45779628     48.33076593
+var planet_data = `mercury   0.38709927      0.20563593      7.00497902      252.25032350     77.45779628     48.33076593
           0.00000037      0.00001906     -0.00594749   149472.67411175      0.16047689     -0.12534081
 venus     0.72333566      0.00677672      3.39467605      181.97909950    131.60246718     76.67984255
           0.00000390     -0.00004107     -0.00078890    58517.81538729      0.00268329     -0.27769418
@@ -52,9 +52,85 @@ for(let i = 0; i < units.length;i+=2){
     }
 }
 
+const JD_J2000 = 2451545.0;       // JD of 2000 Jan 1.5 (noon)
+const DAYS_PER_CENTURY = 36525.0;
+
+// Convert JS Date → Julian Date
+function date_to_julian_date(date) {
+    const year = date.getUTCFullYear();
+    let month = date.getUTCMonth() + 1;
+    const day = date.getUTCDate();
+    const hour = date.getUTCHours();
+    const minute = date.getUTCMinutes();
+    const second = date.getUTCSeconds() + date.getUTCMilliseconds() / 1000;
+
+    let y = year, m = month;
+    if (m <= 2) { y -= 1; m += 12; }
+
+    const A = Math.floor(y / 100);
+    const B = 2 - A + Math.floor(A / 4);
+
+    const JD = Math.floor(365.25 * (y + 4716))
+             + Math.floor(30.6001 * (m + 1))
+             + day + B - 1524.5
+             + (hour + minute / 60 + second / 3600) / 24;
+
+    return JD;
+}
+
+// Convert Julian Date → JS Date
+function julian_date_to_date(JD) {
+    let jd = JD + 0.5;
+    const Z = Math.floor(jd);
+    const F = jd - Z;
+    let A = Z;
+
+    if (Z >= 2299161) {
+        const alpha = Math.floor((Z - 1867216.25) / 36524.25);
+        A = Z + 1 + alpha - Math.floor(alpha / 4);
+    }
+
+    const B = A + 1524;
+    const C = Math.floor((B - 122.1) / 365.25);
+    const D = Math.floor(365.25 * C);
+    const E = Math.floor((B - D) / 30.6001);
+
+    const day = B - D - Math.floor(30.6001 * E) + F;
+    const month = (E < 14) ? E - 1 : E - 13;
+    const year = (month > 2) ? C - 4716 : C - 4715;
+
+    const dayFrac = day % 1;
+    const dayInt = Math.floor(day);
+    const hours = dayFrac * 24;
+    const minutes = (hours % 1) * 60;
+    const seconds = (minutes % 1) * 60;
+
+    return new Date(Date.UTC(
+        year,
+        month - 1,
+        dayInt,
+        Math.floor(hours),
+        Math.floor(minutes),
+        Math.floor(seconds),
+        Math.round((seconds % 1) * 1000)
+    ));
+}
+
+// Convert JS Date → Kepler time (T)
+export function date_to_kepler_time(date) {
+    const JD = date_to_julian_date(date)*2.2;
+    return (JD - JD_J2000) / DAYS_PER_CENTURY;
+}
+
+// Convert Kepler time (T) → JS Date
+export function kepler_time_to_date(T) {
+    const JD = T * DAYS_PER_CENTURY + JD_J2000;
+    return julian_date_to_date(JD);
+}
+
 export function kepler_orbital_position(orbit_data,time_eph){
 
-    var time = (time_eph-2451545)/36525;
+    var time = time_eph;
 
     var a =  orbit_data.axis.initial                 + orbit_data.axis.delta                 *time//au;
     var e =  orbit_data.eccentricity.initial         + orbit_data.eccentricity.delta          *time//radians;

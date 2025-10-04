@@ -1,5 +1,6 @@
 <html>
     <head>
+         <meta charset="UTF-8">
         <title>the thing</title>
         <script type="importmap">
         {
@@ -12,11 +13,25 @@
             "three/addons/": "https://unpkg.com/three/examples/jsm/"
             }
         }
-        </script>
+        </script>   
+        <link rel = "stylesheet" href="style.css">
     </head>
     <body>
         <!--<link rel="preload" as="fetch" href="./kernel.wgsl" id = "sim-kernel">-->
         <script type="module" src="orbital_mech.js"></script>
         <script type="module" src="index.js"></script>
+        <div class = "time-plane">
+            <div id = "clock-wrapper">
+                <p id = "time">
+
+                </p>
+            </div>
+            <div class = "forward-arrow">⮞</div>
+            <div class = "forward-arrow">⮞</div>
+            <div class = "forward-arrow">⮞</div>
+            <div class = "forward-arrow">⮞</div>
+            <div class = "forward-arrow">⮞</div>
+
+        </div>
     </body>
 </html>

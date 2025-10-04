@@ -10,6 +10,7 @@ renderer.setSize( window.innerWidth, window.innerHeight );
 renderer.setAnimationLoop( animate );
 document.body.appendChild( renderer.domElement );
 
+
 const geometries = new Map();
 const materials = new Map();
 const meshes = new Map();

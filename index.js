@@ -12,6 +12,10 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 
+//Load space background
+const spaceBackground = new THREE.TextureLoader().load('./assets/data/2k_stars.jpg')
+scene.background = spaceBackground;
+
 // Add a light source to represent the sun
 const sunLight = new THREE.PointLight(0xFFFF00, 1, 500, 2);
 sunLight.position.set(0, 100, 0);
@@ -27,9 +31,8 @@ const lights = new Map();
 const pathes = new Map();
 const textures = new Map();
 
-//Load texture for the sun(local image)
+//
 const textureLoader = new THREE.TextureLoader();
-
     const hash_buf = new ArrayBuffer(12);
     const hash_f32 = new Float32Array(hash_buf);
     const hash_u32 = new Uint32Array(hash_buf);
@@ -44,23 +47,22 @@ class CelestialObject{
         this.texture = texture;
         this.distanceFromSun = distanceFromSun;
     }
-createMesh() 
-{
+    createMesh() {   
     let geometry = new THREE.SphereGeometry(this.size, 32, 32);
     let material = new THREE.MeshPhongMaterial({ map: this.texture });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.name = this.name;
     this.mesh.position.x = this.distanceFromSun;
-}
+    }
 
-addToScene(scene) 
-{
+    addToScene(scene) {
     scene.add(this.mesh);
-}
-update(){
+    }
 
+    update(){
+    }
 }
-}
+
 
 async function loadTextures(){
     const textureLoader = new THREE.TextureLoader();
@@ -77,14 +79,14 @@ async function loadTextures(){
 }
 
 const planetsData = [
-  { name: 'Mercury', size: 2, texture: 'mercury', distanceFromSun: 30},
-  { name: 'Venus', size: 4, texture: 'venus', distanceFromSun: 50},
-  { name: 'Earth', size: 5, texture: 'earth', distanceFromSun: 70},
-  { name: 'Mars', size: 7, texture: 'mars', distanceFromSun: 90},
-  { name: 'Jupiter', size: 20, texture: 'jupiter', distanceFromSun: 150},
-  { name: 'Saturn', size: 18, texture: 'saturn', distanceFromSun: 200},
-  { name: 'Uranus', size: 15, texture: 'uranus', distanceFromSun: 250},
-  { name: 'Neptune', size: 14, texture: 'neptune', distanceFromSun: 300},
+  { name: 'Mercury', size: .2, texture: 'mercury', distanceFromSun: 30},
+  { name: 'Venus', size: .4, texture: 'venus', distanceFromSun: 50},
+  { name: 'Earth', size: .5, texture: 'earth', distanceFromSun: 70},
+  { name: 'Mars', size: .7, texture: 'mars', distanceFromSun: 90},
+  { name: 'Jupiter', size: 10, texture: 'jupiter', distanceFromSun: 150},
+  { name: 'Saturn', size: 1.8, texture: 'saturn', distanceFromSun: 200},
+  { name: 'Uranus', size: 1.5, texture: 'uranus', distanceFromSun: 250},
+  { name: 'Neptune', size: 1.4, texture: 'neptune', distanceFromSun: 300},
 ];
 
 var planets;

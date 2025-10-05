@@ -44,7 +44,6 @@ class CelestialObject{
     constructor(name, size, texture,distanceFromSun,mass){
         this.name = name;
         this.size = size;
-        console.log(this.texture)
         this.texture = texture;
         this.distanceFromSun = distanceFromSun;
         this.mass = mass;

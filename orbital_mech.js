@@ -123,6 +123,15 @@ export function date_to_kepler_time(date) {
     return (JD - JD_J2000) / DAYS_PER_CENTURY;
 }
 
+export function time_to_kepler_time(date) {
+    const JD = timestamp_to_julian_date(date);
+    return (JD - JD_J2000) / DAYS_PER_CENTURY;
+}
+
+function timestamp_to_julian_date(ms_since_epoch) {
+    // Convert milliseconds since Unix epoch → Julian Date
+    return (ms_since_epoch / 86400000) + 2440587.5;
+}
 // Convert Kepler time (T) → JS Date
 
 export function test_kepler_time_scaling(orbit_data) {

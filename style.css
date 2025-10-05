@@ -22,6 +22,7 @@ line-height: 0;
 .forward-arrow{
     color:white;
     font-size: 2rem;
+    cursor:pointer;
 }
 
 .time-plane{

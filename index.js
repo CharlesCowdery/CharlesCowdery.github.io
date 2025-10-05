@@ -17,7 +17,7 @@ const spaceBackground = new THREE.TextureLoader().load('./assets/data/2k_stars.j
 scene.background = spaceBackground;
 
 // Add a light source to represent the sun
-const sunLight = new THREE.PointLight(0xFFFFFF, 2, 100, 2);
+const sunLight = new THREE.PointLight(0xFFFFFF, 2, 100, 0);
 sunLight.position.set(0, 0, 0);
 sunLight.castShadow = true;
 scene.add(sunLight);
@@ -88,10 +88,10 @@ async function loadTextures(){
 }
 
 const planetsData = [
-    { name: "Sun", size: 1e7, texture: "sun", distanceFromSun: 0, mass:1.989e30, SOI: 1e100},
+    { name: "Sun", size: 1e7, texture: "sun", distanceFromSun: 0, mass:1.989e30, SOI: 1e20},
     { name: 'Mercury', size: 2.4e6, texture: 'mercury', distanceFromSun: 30,mass:3.285e23, SOI: 1e8},
     { name: 'Venus', size: 6e6, texture: 'venus', distanceFromSun: 50,mass:4.867e24, SOI: 1e8},
-    { name: 'Earth', size: 6.4e6, texture: 'earth', distanceFromSun: 70, mass:5.97219e30, SOI: 1e15},
+    { name: 'Earth', size: 6.4e6, texture: 'earth', distanceFromSun: 70, mass:5.97219e24, SOI: 1e15},
     { name: 'Mars', size: 3.4e6, texture: 'mars', distanceFromSun: 90,mass:6.39e23, SOI: 1e9},
     { name: 'Jupiter', size: 7e7, texture: 'jupiter', distanceFromSun: 150, mass: 1.898e27, SOI: 1e10},
     { name: 'Saturn', size: 6e7, texture: 'saturn', distanceFromSun: 200, mass : 5.683e26, SOI: 1e10},
@@ -204,6 +204,15 @@ function gravity_solve(prj,step,t){
         delta[1] = wd[s+1]-prj.position[1]
         delta[2] = wd[s+2]-prj.position[2]
 
+
+        for(let i = 0; i < 3; i++) if (isNaN(wd[s+i])){
+            console.log(wd[s+0],wd[s+1],wd[s+2])
+throw error();
+        } 
+
+        //console.log(wd[s+0],wd[s+1],
+//wd[s+2],delta[0],delta[1],delta[2])
+
         var p_dist = Math.sqrt(delta[0]*delta[0]+delta[1]*delta[1]+delta[2]*delta[2]);
         var force_scalar = G_constant*wd[4]/(p_dist*p_dist*p_dist);
 
@@ -220,22 +229,27 @@ function gravity_solve(prj,step,t){
         }
     }
 
-    prj.acceleration
+    //console.log("pre",prj.position[0],prj.position[1],prj.position[2],prj.velocity[0],prj.velocity[1],prj.velocity[2],prj.acceleration[0],prj.acceleration[1],prj.acceleration[2],)
+    //console.log(wd)
 
-    prj.position[0] += prj.velocity[0]*step+0.5*GS_force[0]*GS_force[0]*step;
-    prj.position[1] += prj.velocity[1]*step+0.5*GS_force[1]*GS_force[1]*step;
-    prj.position[2] += prj.velocity[2]*step+0.5*GS_force[2]*GS_force[2]*step;
+    prj.position[0] += prj.velocity[0]*step+0.5*prj.acceleration[0]*prj.acceleration[0]*step;
+    prj.position[1] += prj.velocity[1]*step+0.5*prj.acceleration[1]*prj.acceleration[1]*step;
+    prj.position[2] += prj.velocity[2]*step+0.5*prj.acceleration[2]*prj.acceleration[2]*step;
 
     prj.velocity[0]+=prj.acceleration[0]*step;
     prj.velocity[1]+=prj.acceleration[1]*step;
     prj.velocity[2]+=prj.acceleration[2]*step;
+
+    //console.log("post",prj.position[0],prj.position[1],prj.position[2],prj.velocity[0],prj.velocity[1],prj.velocity[2],prj.acceleration[0],prj.acceleration[1],prj.acceleration[2],)
+    //console.log(wd);
 }
+
 
 var orbit_cache_start_time_ms = 0;
 var orbit_cache_start_time_s = 0;
 
 var cache_size = 1000000;
-var cache_t_step_seconds = 1000;
+var cache_t_step_seconds = 100000;
 var cache_index_mulitiplier = 3*8;
 var p_orbit_cache = new Float32Array(cache_size*cache_index_mulitiplier)
 
@@ -250,6 +264,7 @@ function complete_cache(){
         for(let pi = 1; pi < planets.length; pi++){
             var name = planets[pi].name.toLowerCase();
             var orbital_position = ORBIT.kepler_orbital_position(ORBIT.sets[name],tj);
+            //for(let i = 0; i < 3; i++) if (isNaN(orbital_position[0])) throw error();
             p_orbit_cache[i++] = orbital_position[0]*au_scalar_1;
             p_orbit_cache[i++] = orbital_position[1]*au_scalar_1;
             p_orbit_cache[i++] = orbital_position[2]*au_scalar_1;
@@ -268,16 +283,16 @@ function simulate_path(proj_orig,steps,point_count,t_start_s){
     var tms = t_start_s*1000;
     var ts = tms/1000;
 
-    var step_base_seconds = 100;
+    var step_base_seconds = 10;
     var step_base_ms = step_base_seconds*1000;
     var step_s = step_base_seconds;
-    var step_ms = step*1000;
+    var step_ms = step_s*1000;
 
     let my_working_data = []
     working_data_count = planets.length;
 
     planets.forEach(v=>{
-        my_working_data.push(
+        my_working_data.push([
             0,//0 px
             0,//1 py
             0,//2 pz
@@ -290,12 +305,13 @@ function simulate_path(proj_orig,steps,point_count,t_start_s){
             0,//9  csx
             0,//10 csy
             0,//11 csz
+        ]
         )
     });
     wd = new Float32Array(my_working_data.flat());
+    console.log("adwfpasidjfoaisf",my_working_data);
     working_data_p_count = my_working_data[0].length;
     var au_scalar_2 = 1/Au*Math.sqrt(3)*orbital_scalar
-    var step = 1000;
     var cross_vec = new Float32Array([0,0,0]);
 
     var t1_index;
@@ -305,8 +321,9 @@ function simulate_path(proj_orig,steps,point_count,t_start_s){
     var next_point = 0;
 
     console.log(wd)
-
-    for(let i = 0; i < steps; i++){
+var escape = false;
+    let i = 0
+    for(i = 0; i < steps; i++){
         var ti_ur = (ts-orbit_cache_start_time_s)/cache_t_step_seconds
         var t1_index = Math.floor(ti_ur)*cache_index_mulitiplier;
         var t2_index = Math.ceil(ti_ur)*cache_index_mulitiplier;
@@ -320,14 +337,27 @@ function simulate_path(proj_orig,steps,point_count,t_start_s){
             //    p_orbit_cache[ti1+0]*mix1,p_orbit_cache[ti2+0]*mix2,
             //    p_orbit_cache[ti1+1]*mix1,p_orbit_cache[ti2+1]*mix2,
             //    p_orbit_cache[ti1+2]*mix1,p_orbit_cache[ti2+2]*mix2)
+            for(let i = 0; i < 3; i++) if (isNaN(p_orbit_cache[ti1+i])) {
+                console.log(ti1,ts,orbit_cache_start_time_s,cache_t_step_seconds,cache_size*cache_index_mulitiplier)
+                escape = true;
+                break;
+            }
+            if(escape) break;
             wd[pi*working_data_p_count+0] = (p_orbit_cache[ti1++]*mix1+p_orbit_cache[ti2++]*mix2);
             wd[pi*working_data_p_count+1] = (p_orbit_cache[ti1++]*mix1+p_orbit_cache[ti2++]*mix2);
             wd[pi*working_data_p_count+2] = (p_orbit_cache[ti1++]*mix1+p_orbit_cache[ti2++]*mix2);
+            
         }
 
-        console.log(wd);
+        if(escape) break;
+        //console.log(wd);
 
-        gravity_solve(proj,step);
+        //console.log(proj.velocity[0],proj.acceleration[0],proj.position[0])
+
+        gravity_solve(proj,step_s);
+
+        //console.log("post",proj.velocity[0],proj.acceleration[0],proj.position[0])
+
         
         if(i>next_point){
             points.push(
@@ -339,16 +369,20 @@ function simulate_path(proj_orig,steps,point_count,t_start_s){
             next_point += point_every;
         }
 
+        //console.log(step_s,step_ms)
+
         ts = ts+step_s;
         tms = tms+step_ms;
 
         cross_product(cross_vec,proj.velocity,proj.acceleration);
         var mag = 1e-7+dist(cross_vec,[0,0,0])/dist([0,0,0],proj.velocity);
-        mag = Math.max(1,1/mag*step_base_seconds);
+        mag = Math.max(1,1/10/mag);
+        //console.log(mag)
 
         step_s = mag*step_base_seconds;
         step_ms = mag*step_base_ms;
     }
+    console.log(i);
     return [points,wd];
 }
 
@@ -420,9 +454,9 @@ class Projectile{
     clone(){
         var n = new Projectile();
         n.mass = this.mass;
-        n.position = this.position;
-        n.velocity = this.velocity;
-        n.acceleration = this.acceleration;
+        n.position = [...this.position];
+        n.velocity = [...this.velocity];
+        n.acceleration =[... this.acceleration];
         return n;
     }
 }
@@ -435,6 +469,8 @@ function cross_product(v_out,v1,v2){
     v_out[2] = v1[0]*v2[1]-v1[1]*v2[0];
 }
 
+var tester;
+
 async function charles(){
 
 
@@ -444,28 +480,33 @@ async function charles(){
     ORBIT.test_kepler_time_scaling(ORBIT.sets["earth"])
 
     complete_cache();
-    registerCurve("test orbit");
 
-    var t_proj = new Projectile(100,[2*Au,2*Au,2*Au],[40000,0,0]);
+    for(let i = 0; i < 3; i++){
+        let pname = "test "+i+" orbit"
+            registerCurve(pname);
+    var t_proj = new Projectile(100,[2*Au,2*Au,2*Au],[40000*Math.random(),40000*Math.random(),40000*Math.random()]);
+
+    projectiles[pname] = [t_proj.clone(),new THREE.Mesh(new THREE.IcosahedronGeometry(0.2,3),new THREE.MeshBasicMaterial({color:"#ff0000"}))];
+    scene.add(projectiles[pname][1]);
 
     var s_start = new Date();
 
-    var sim_data = simulate_path(t_proj,10000,1000);
+    var sim_data = simulate_path(t_proj,500000,4000,time.getTime()/1000);
 
     var s_end = new Date();
 
-    console.log(sim_data[0])
+    //console.log(sim_data[0])
 
     console.log("sim time: ", s_end-s_start)
-        curves.set("test orbit", new THREE.CatmullRomCurve3(sim_data[0]));
+    curves.set(pname, new THREE.CatmullRomCurve3(sim_data[0]));
 
-    registerCurveUpdate("test orbit");
+    registerCurveUpdate(pname);
 
-    planets[0].mesh.castShadow=false;
 
-    meshes.set("test orbit", new THREE.Line(geometries.get("test orbit"),materials.get("line basic")));
+    meshes.set(pname, new THREE.Line(geometries.get(pname),materials.get("line basic")));
     //pathes.get("test orbit").moveTo(t_proj.position[0],t_proj.position[1],t_proj.position[2])
-
+    }
+    planets[0].mesh.castShadow=false;
 
     planets.forEach(planet=>{
         var name = planet.name.toLowerCase();
@@ -549,11 +590,31 @@ function charles_update(){
     })
     curve_update_queue = [];
     
+    let my_working_data = []
+    working_data_count = planets.length;
+
     var au_scalar = Au/Math.sqrt(3);
     let i = 0;
     planets.forEach(planet=>{
         var name = planet.name.toLowerCase();
-        if(!(name in ORBIT.sets)) return;
+        var dat = [
+            planet.position[0],//0 px
+            planet.position[1],//1 py
+            planet.position[2],//2 pz
+            planet.distanceFromSun,//3 sdist
+            planet.mass,//4
+            planet.size,//5
+            planet.SOI,//6
+            0,//7  capprch
+            0,//8  tapprch
+            0,//9  csx
+            0,//10 csy
+            0,//11 csz
+        ]
+        if(!(name in ORBIT.sets)){
+            my_working_data.push(dat);
+return;
+        } 
         var orbital_position = ORBIT.kepler_orbital_position(ORBIT.sets[name],time_julian);
         planet.mesh.position.x = orbital_position[0]*orbital_scalar;
         planet.mesh.position.y = orbital_position[1]*orbital_scalar;
@@ -563,7 +624,48 @@ function charles_update(){
         planet.position[2] = orbital_position[2]*au_scalar;
         planet.distanceFromSun = dist([0,0,0],planet.position);
         
+        my_working_data.push([
+            planet.position[0],//0 px
+            planet.position[1],//1 py
+            planet.position[2],//2 pz
+            planet.distanceFromSun,//3 sdist
+            planet.mass,//4
+            planet.size,//5
+            planet.SOI,//6
+            0,//7  capprch
+            0,//8  tapprch
+            0,//9  csx
+            0,//10 csy
+            0,//11 csz
+        ]
+        )
     })
+
+    wd = new Float32Array(my_working_data.flat());
+    //console.log("adwfpasidjfoaisf",my_working_data);
+    working_data_p_count = my_working_data[0].length;
+
+    for(let k in projectiles){
+        let pset = projectiles[k];
+        let projectile = pset[0];
+        let mesh = pset[1];
+
+        //console.log(wd)
+        var n = 20000;
+        for(let j = 0; j < n; j++){
+            gravity_solve(projectile,tick_speed_seconds/n,0);
+        }
+
+        //console.log(
+        //    projectile.position[0]/Au,
+        //    projectile.position[1]/Au,
+        //    projectile.position[2]/Au
+        //)
+        mesh.position.x = projectile.position[0]/au_scalar,
+        mesh.position.y = projectile.position[1]/au_scalar,
+        mesh.position.z = projectile.position[2]/au_scalar
+    }
+
     let cameratarget = planets[targetindex];
     controls.target = new Vec3(
         cameratarget.position[0]/Au*Math.sqrt(3),

@@ -68,7 +68,8 @@ function date_to_julian_date(date) {
     if (m <= 2) { y -= 1; m += 12; }
 
     const A = Math.floor(y / 100);
-    const B = 2 - A + Math.floor(A / 4);
+    const isGregorian = (year > 1582) || (year === 1582 && (month > 10 || (month === 10 && day >= 15)));
+    const B = isGregorian ? 2 - A + Math.floor(A / 4) : 0;
 
     const JD = Math.floor(365.25 * (y + 4716))
              + Math.floor(30.6001 * (m + 1))
@@ -118,14 +119,42 @@ function julian_date_to_date(JD) {
 
 // Convert JS Date → Kepler time (T)
 export function date_to_kepler_time(date) {
-    const JD = date_to_julian_date(date)*2.2;
+    const JD = date_to_julian_date(date);
     return (JD - JD_J2000) / DAYS_PER_CENTURY;
 }
 
 // Convert Kepler time (T) → JS Date
-export function kepler_time_to_date(T) {
-    const JD = T * DAYS_PER_CENTURY + JD_J2000;
-    return julian_date_to_date(JD);
+
+export function test_kepler_time_scaling(orbit_data) {
+    // JD constants
+    const JD_J2000 = 2451545.0;
+    const DAYS_PER_CENTURY = 36525.0;
+
+    // Helper to compute mean longitude at a given date
+    function mean_longitude_at_date(date) {
+        const JD = date_to_julian_date(date);
+        const T = date_to_kepler_time(date);//(JD - JD_J2000) / DAYS_PER_CENTURY;
+        return orbit_data.mean_longitude.initial + orbit_data.mean_longitude.delta * T;
+    }
+
+    // Compute mean longitude at J2000 and now
+    const date0 = new Date(Date.UTC(2000, 0, 1, 12));  // J2000
+    const date1 = new Date(Date.UTC(2025, 9, 4, 0));   // Today
+
+    const L0 = mean_longitude_at_date(date0);
+    const L1 = mean_longitude_at_date(date1);
+
+    const deltaL = ((L1 - L0) % 360 + 360) % 360; // wrap 0–360
+    const T_days = (date_to_julian_date(date1) - JD_J2000);
+    const T_cent = T_days / DAYS_PER_CENTURY;
+
+    console.log("Elapsed days:", T_days.toFixed(2));
+    console.log("Elapsed centuries:", T_cent.toFixed(6));
+    console.log("Expected mean_longitude delta (deg):", orbit_data.mean_longitude.delta * T_cent);
+    console.log("Actual wrapped delta:", deltaL.toFixed(6));
+
+    const revs = (orbit_data.mean_longitude.delta * T_cent) / 360;
+    console.log("Earth should have revolved ~", revs.toFixed(2), "times since J2000");
 }
 
 export function kepler_orbital_position(orbit_data,time_eph){
@@ -187,6 +216,8 @@ var z_eccl = (Math.sin(perihelion)*Math.sin(I)) * x_prime + (Math.cos(perihelion
 
 
 console.log(kepler_orbital_position(sets["jupiter"],1002))
+
+
 
 //tf7fd7tfd97rct87
 /*

@@ -44,12 +44,14 @@ class CelestialObject{
     constructor(name, size, texture,distanceFromSun){
         this.name = name;
         this.size = size;
+        console.log(this.texture)
         this.texture = texture;
         this.distanceFromSun = distanceFromSun;
     }
     createMesh() {   
     let geometry = new THREE.SphereGeometry(this.size, 32, 32);
-    let material = new THREE.MeshPhongMaterial({ map: this.texture });
+    console.log(this.texture)
+    let material = new THREE.MeshPhongMaterial({ "map": this.texture });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.name = this.name;
     this.mesh.position.x = this.distanceFromSun;
@@ -63,7 +65,7 @@ class CelestialObject{
     }
 }
 
-
+//Loads textures 
 async function loadTextures(){
     const textureLoader = new THREE.TextureLoader();
     const sunTexture = await textureLoader.loadAsync('assets/data/2k_sun.jpg')
@@ -83,7 +85,7 @@ const planetsData = [
   { name: 'Venus', size: .4, texture: 'venus', distanceFromSun: 50},
   { name: 'Earth', size: .5, texture: 'earth', distanceFromSun: 70},
   { name: 'Mars', size: .7, texture: 'mars', distanceFromSun: 90},
-  { name: 'Jupiter', size: 10, texture: 'jupiter', distanceFromSun: 150},
+  { name: 'Jupiter', size: 1, texture: 'jupiter', distanceFromSun: 150},
   { name: 'Saturn', size: 1.8, texture: 'saturn', distanceFromSun: 200},
   { name: 'Uranus', size: 1.5, texture: 'uranus', distanceFromSun: 250},
   { name: 'Neptune', size: 1.4, texture: 'neptune', distanceFromSun: 300},
@@ -94,10 +96,11 @@ var planets;
 async function createScene() {
     try{
         const textures = await loadTextures();
-        
+        console.log(textures);
         //Map function that goes over planetsData array. Elements are passed as PlanetData
         planets = planetsData.map(planetData =>{
-            const texture = textures[planetData.texture];    
+            const texture = textures[planetData.texture+"Texture"];  
+            console.log(texture);  
             const planet = new CelestialObject(
                 planetData.name,
                 planetData.size,
@@ -118,7 +121,7 @@ async function createScene() {
 
 
 //stationary sun
-const sun = new CelestialObject('Sun', 30, textures.sunTexture, 0, 0, 0, 'star');
+const sun = new CelestialObject('Sun', 1, textures.sunTexture, 0, 0, 0, 'star');
 sun.createMesh();
 sun.addToScene(scene);
 
@@ -159,7 +162,7 @@ function registerPath(path_name){
     geometries.set(path_name,new THREE.BufferGeometry());
 }
 
-var orbital_scalar = 30;
+var orbital_scalar = 3;
 
 function dist(a1,a2){
     return Math.sqrt(Math.pow(a1[0]-a2[0],2)+Math.pow(a1[1]-a2[1],2)+Math.pow(a1[2]-a2[2],2))

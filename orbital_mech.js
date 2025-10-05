@@ -1,7 +1,7 @@
 
 //`               a              e               I                L            long.peri.      long.node.`
 //`           au, au/Cy     rad, rad/Cy     deg, deg/Cy      deg, deg/Cy      deg, deg/Cy     deg, deg/Cy`
-var planet_data = `Mercury   0.38709927      0.20563593      7.00497902      252.25032350     77.45779628     48.33076593
+var planet_data = `mercury   0.38709927      0.20563593      7.00497902      252.25032350     77.45779628     48.33076593
           0.00000037      0.00001906     -0.00594749   149472.67411175      0.16047689     -0.12534081
 venus     0.72333566      0.00677672      3.39467605      181.97909950    131.60246718     76.67984255
           0.00000390     -0.00004107     -0.00078890    58517.81538729      0.00268329     -0.27769418
@@ -52,9 +52,114 @@ for(let i = 0; i < units.length;i+=2){
     }
 }
 
+const JD_J2000 = 2451545.0;       // JD of 2000 Jan 1.5 (noon)
+const DAYS_PER_CENTURY = 36525.0;
+
+// Convert JS Date → Julian Date
+function date_to_julian_date(date) {
+    const year = date.getUTCFullYear();
+    let month = date.getUTCMonth() + 1;
+    const day = date.getUTCDate();
+    const hour = date.getUTCHours();
+    const minute = date.getUTCMinutes();
+    const second = date.getUTCSeconds() + date.getUTCMilliseconds() / 1000;
+
+    let y = year, m = month;
+    if (m <= 2) { y -= 1; m += 12; }
+
+    const A = Math.floor(y / 100);
+    const isGregorian = (year > 1582) || (year === 1582 && (month > 10 || (month === 10 && day >= 15)));
+    const B = isGregorian ? 2 - A + Math.floor(A / 4) : 0;
+
+    const JD = Math.floor(365.25 * (y + 4716))
+             + Math.floor(30.6001 * (m + 1))
+             + day + B - 1524.5
+             + (hour + minute / 60 + second / 3600) / 24;
+
+    return JD;
+}
+
+// Convert Julian Date → JS Date
+function julian_date_to_date(JD) {
+    let jd = JD + 0.5;
+    const Z = Math.floor(jd);
+    const F = jd - Z;
+    let A = Z;
+
+    if (Z >= 2299161) {
+        const alpha = Math.floor((Z - 1867216.25) / 36524.25);
+        A = Z + 1 + alpha - Math.floor(alpha / 4);
+    }
+
+    const B = A + 1524;
+    const C = Math.floor((B - 122.1) / 365.25);
+    const D = Math.floor(365.25 * C);
+    const E = Math.floor((B - D) / 30.6001);
+
+    const day = B - D - Math.floor(30.6001 * E) + F;
+    const month = (E < 14) ? E - 1 : E - 13;
+    const year = (month > 2) ? C - 4716 : C - 4715;
+
+    const dayFrac = day % 1;
+    const dayInt = Math.floor(day);
+    const hours = dayFrac * 24;
+    const minutes = (hours % 1) * 60;
+    const seconds = (minutes % 1) * 60;
+
+    return new Date(Date.UTC(
+        year,
+        month - 1,
+        dayInt,
+        Math.floor(hours),
+        Math.floor(minutes),
+        Math.floor(seconds),
+        Math.round((seconds % 1) * 1000)
+    ));
+}
+
+// Convert JS Date → Kepler time (T)
+export function date_to_kepler_time(date) {
+    const JD = date_to_julian_date(date);
+    return (JD - JD_J2000) / DAYS_PER_CENTURY;
+}
+
+// Convert Kepler time (T) → JS Date
+
+export function test_kepler_time_scaling(orbit_data) {
+    // JD constants
+    const JD_J2000 = 2451545.0;
+    const DAYS_PER_CENTURY = 36525.0;
+
+    // Helper to compute mean longitude at a given date
+    function mean_longitude_at_date(date) {
+        const JD = date_to_julian_date(date);
+        const T = date_to_kepler_time(date);//(JD - JD_J2000) / DAYS_PER_CENTURY;
+        return orbit_data.mean_longitude.initial + orbit_data.mean_longitude.delta * T;
+    }
+
+    // Compute mean longitude at J2000 and now
+    const date0 = new Date(Date.UTC(2000, 0, 1, 12));  // J2000
+    const date1 = new Date(Date.UTC(2025, 9, 4, 0));   // Today
+
+    const L0 = mean_longitude_at_date(date0);
+    const L1 = mean_longitude_at_date(date1);
+
+    const deltaL = ((L1 - L0) % 360 + 360) % 360; // wrap 0–360
+    const T_days = (date_to_julian_date(date1) - JD_J2000);
+    const T_cent = T_days / DAYS_PER_CENTURY;
+
+    console.log("Elapsed days:", T_days.toFixed(2));
+    console.log("Elapsed centuries:", T_cent.toFixed(6));
+    console.log("Expected mean_longitude delta (deg):", orbit_data.mean_longitude.delta * T_cent);
+    console.log("Actual wrapped delta:", deltaL.toFixed(6));
+
+    const revs = (orbit_data.mean_longitude.delta * T_cent) / 360;
+    console.log("Earth should have revolved ~", revs.toFixed(2), "times since J2000");
+}
+
 export function kepler_orbital_position(orbit_data,time_eph){
 
-    var time = (time_eph-2451545)/36525;
+    var time = time_eph;
 
     var a =  orbit_data.axis.initial                 + orbit_data.axis.delta                 *time//au;
     var e =  orbit_data.eccentricity.initial         + orbit_data.eccentricity.delta          *time//radians;
@@ -89,7 +194,7 @@ export function kepler_orbital_position(orbit_data,time_eph){
         anomaly = delta_anomaly+anomaly;
     }
 
-    console.log(mL,La,a2,a1,anomaly)
+   // console.log(mL,La,a2,a1,anomaly)
     
 
     mean_anomaly=anomaly-e*Math.sin(anomaly);
@@ -112,8 +217,10 @@ var z_eccl = (Math.sin(perihelion)*Math.sin(I)) * x_prime + (Math.cos(perihelion
 
 console.log(kepler_orbital_position(sets["jupiter"],1002))
 
-//tf7fd7tfd97rct87
 
+
+//tf7fd7tfd97rct87
+/*
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
 
 console.log("Planetary orbit simulation starting...");
@@ -201,3 +308,4 @@ function animate() {
 }
 
 animate();
+*/

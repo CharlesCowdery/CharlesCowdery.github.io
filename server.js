@@ -37,7 +37,8 @@ const server = http.createServer((req,res)=>{
         "js":"text/javascript",
         "html":"text/html",
         "wgsl":"text/wgsl",
-        "jpg":"image/jpeg"
+        "jpg":"image/jpeg",
+        "css":"text"
       };
       console.log(filePath)
       var type = type_dict[filePath.split(".").at(-1).toLowerCase()];

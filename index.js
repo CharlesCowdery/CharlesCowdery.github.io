@@ -44,6 +44,7 @@ class CelestialObject{
     constructor(name, size, texture,distanceFromSun,mass){
         this.name = name;
         this.size = size;
+        console.log(this.texture)
         this.texture = texture;
         this.distanceFromSun = distanceFromSun;
         this.mass = mass;
@@ -51,7 +52,8 @@ class CelestialObject{
     }
     createMesh() {   
     let geometry = new THREE.SphereGeometry(this.size, 32, 32);
-    let material = new THREE.MeshPhongMaterial({ map: this.texture });
+    console.log(this.texture)
+    let material = new THREE.MeshPhongMaterial({ "map": this.texture });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.name = this.name;
     this.mesh.position.x = this.distanceFromSun;
@@ -65,7 +67,7 @@ class CelestialObject{
     }
 }
 
-
+//Loads textures 
 async function loadTextures(){
     const textureLoader = new THREE.TextureLoader();
     const sunTexture = await textureLoader.loadAsync('assets/data/2k_sun.jpg')
@@ -97,10 +99,11 @@ var planets;
 async function createScene() {
     try{
         const textures = await loadTextures();
-        
+        console.log(textures);
         //Map function that goes over planetsData array. Elements are passed as PlanetData
         planets = planetsData.map(planetData =>{
-            const texture = textures[planetData.texture];    
+            const texture = textures[planetData.texture+"Texture"];  
+            console.log(texture);  
             const planet = new CelestialObject(
                 planetData.name,
                 planetData.size,

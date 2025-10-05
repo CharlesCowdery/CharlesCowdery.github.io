@@ -300,7 +300,7 @@ function simulate_path(proj_orig,steps,point_count,t_start_s){
             v.mass,//4
             v.size,//5
             v.SOI,//6
-            0,//7  capprch
+            1e30,//7  capprch
             0,//8  tapprch
             0,//9  csx
             0,//10 csy
@@ -354,7 +354,7 @@ var escape = false;
 
         //console.log(proj.velocity[0],proj.acceleration[0],proj.position[0])
 
-        gravity_solve(proj,step_s);
+        gravity_solve(proj,step_s,ts);
 
         //console.log("post",proj.velocity[0],proj.acceleration[0],proj.position[0])
 
@@ -502,6 +502,16 @@ async function charles(){
 
     registerCurveUpdate(pname);
 
+    for(let i = 0; i < planets.length;i++){
+        let nt = wd[i*working_data_p_count+8];
+        let nx = wd[i*working_data_p_count+9];
+        let ny = wd[i*working_data_p_count+10];
+        let nz = wd[i*working_data_p_count+11];
+
+        var pla_name = planets[i].name.toLowerCase()
+        let p = ORBIT.time_to_kepler_time(ORBIT.sets[pla_name],ORBIT.time_to_kepler_time(nt));
+        //console.log("dat",pla_name,ORBIT.sets[pla_name],nt,ORBIT.time_to_kepler_time(nt),nx,ny,nz,p)
+    }
 
     meshes.set(pname, new THREE.Line(geometries.get(pname),materials.get("line basic")));
     //pathes.get("test orbit").moveTo(t_proj.position[0],t_proj.position[1],t_proj.position[2])

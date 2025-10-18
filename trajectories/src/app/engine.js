@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {Vector3,Quaternion} from "three"
 import * as Constants from "./constants"
 
 const JD_J2000 = 2451545.0;       // JD of 2000 Jan 1.5 (noon)
@@ -54,6 +55,150 @@ export function meters_to_system_units(meters){
 }
 
 var solar_system_bodies_ = [];
+
+export class Conic{
+  constructor(eccentricity,scalar,adjustment,initial_true_anomaly,initial_time,gravitational_force,angular_momentum,rotation_from_xy,rotation_to_xy){
+    this.epsilon = 1e-5
+    if(eccentricity == 1) eccentricity = 1.0001;
+    this.eccentricity         = eccentricity;
+    this.scalar               = scalar;
+    this.adjustment           = adjustment;
+    this.initial_time         = initial_time
+    this.rotation_from_xy     = rotation_from_xy;
+    this.rotation_to_xy       = rotation_to_xy;
+    this.gravitational_force  = gravitational_force;
+    this.angular_momentum     = angular_momentum
+    this.direction            = Math.sign(angular_momentum);
+    this.semi_major_axis      = scalar/(1+eccentricity*eccentricity);
+    this.minimum_bound        = (eccentricity<=1)?0:-Math.acos(-1/eccentricity)+this.epsilon;
+    this.maximum_bound        = (eccentricity<=1)?2*Math.PI:Math.acos(-1/eccentricity)-this.epsilon;
+
+    if(eccentricity<1){
+      this.mean_anomaly_per_ms = this.direction*Math.sqrt(gravitational_force/this.semi_major_axis**3)/1000;
+      this.initial_mean_anomaly = true_to_mean_anomaly(initial_true_anomaly,eccentricity);
+    } else {
+      this.mean_anomaly_per_ms = (gravitational_force**2/angular_momentum**3)*((eccentricity**2-1)**(3/2))/1000;
+      this.initial_mean_anomaly = true_to_mean_hyperbolic_anomaly(initial_true_anomaly,eccentricity);
+    }
+
+
+    this.compute_cache(orbit_resolution);
+  }
+  compute_cache(count){
+    let is_hyperbolic = this.eccentricity>=1;
+    let anomaly_start = this.minimum_bound;
+    let anomaly_end = this.maximum_bound;
+    let interval = (anomaly_end-anomaly_start)/count;
+    this.cache = new Float32Array(count*3);
+    this.vec3Cache = new Array(count + ((!is_hyperbolic)?1:0)); //if its non-hyperbolic, one additional point is needed to close the loop
+    var anomaly = anomaly_start
+    var iterator = 0;
+    let i = 0;
+    for(i = 0; i < count; i++, anomaly+=interval){
+      var point = this.sample_at_true_anomaly(anomaly);
+      this.cache[iterator++] = point.x;
+      this.cache[iterator++] = point.y;
+      this.cache[iterator++] = point.z;
+      this.vec3Cache[i] = point.multiplyScalar(meters_to_system_units_scalar);
+    }
+    if(!is_hyperbolic) this.vec3Cache[i] = this.vec3Cache[0]; //if non-hyperbolic, close loop
+  }
+  sample_at_true_anomaly(true_anomaly){
+    var rotator = new Vector3(Math.cos(true_anomaly-this.adjustment),Math.sin(true_anomaly-this.adjustment),0);
+    var radius = this.scalar/(1+this.eccentricity*Math.cos(true_anomaly));
+    var position = rotator.multiplyScalar(radius);
+    position = position.applyQuaternion(this.rotation_from_xy);
+    return position;
+  }
+  position_at_time(t){
+    var delta_t = t-this.initial_time;
+    var delta_mean_anomaly = delta_t*this.mean_anomaly_per_ms;
+    var mean_anomaly = -this.initial_mean_anomaly+delta_mean_anomaly;
+    if(this.eccentricity<1){
+      var true_anomaly = mean_to_true_anomaly(mean_anomaly,this.eccentricity);
+    } else {
+      var true_anomaly = mean_hyperbolic_to_true_anomaly(mean_anomaly,this.eccentricity);
+    }
+    return this.sample_at_true_anomaly(true_anomaly);
+  }
+
+}
+
+export function calculate_conic(velocity, position, body_mass, body_position, signature_time){
+  var relative_position = position.clone().sub(body_position);
+
+  var relative_velocity_offset = velocity.clone().add(relative_position);
+
+  var plane_normal = relative_position.clone().normalize().cross(velocity.clone().normalize());
+  
+  var w = Math.cos(Math.acos(plane_normal.z)/2);
+  var axis = plane_normal.clone().cross(new Vector3(0,0,1)).multiplyScalar(Math.sqrt(1-w*w));
+
+  var rotation = new Quaternion(axis.x,axis.y,axis.z,w);
+  var inv_rotation = rotation.invert();
+
+  var projected_position = relative_position.clone().applyQuaternion(inv_rotation);
+  var projected_relative_velocity = relative_velocity_offset.clone().applyQuaternion(inv_rotation);
+  var projected_velocity = projected_relative_velocity.clone().sub(projected_position);
+  var velocity_magnitude = projected_velocity.clone().length();
+
+  var radius = projected_position.clone().length();
+  var tangential_velocity = projected_position.clone().cross(projected_velocity.clone()).z/radius;
+  var angular_momentum = radius*tangential_velocity;
+  var specific_energy = 0.5*velocity_magnitude*velocity_magnitude - Constants.G*body_mass/radius;
+
+  var term_1 = -Constants.G*body_mass;
+  var term_2 = Math.sqrt(term_1*term_1 + 2 * angular_momentum*angular_momentum * specific_energy);
+  var term_3 = 2*specific_energy;
+
+  var periapsis = (term_1+term_2)/term_3;
+  var apoapsis = (term_1-term_2)/term_3;
+
+  var eccentricity = (apoapsis-periapsis)/(apoapsis+periapsis);
+  var scalar = apoapsis*(1-eccentricity);
+
+  var theta_position = Math.atan2(projected_position.y, projected_position.x);
+  var adjustment = Math.sign(projected_position.clone().dot(projected_velocity))*Math.sign(projected_position.clone().cross(projected_velocity).z)*Math.acos((scalar/radius-1)/eccentricity)-theta_position;
+
+  
+
+  return new Conic(
+      eccentricity,
+      scalar,
+      adjustment,
+      theta_position+adjustment,
+      signature_time,
+      -term_1,
+      angular_momentum,
+      rotation,
+      inv_rotation
+    );
+}
+
+export function calculate_conic_path(signature_position,signature_velocity,signature_time){
+  console.log("calculating conic path")
+  var strongest_index = 0;
+  var strongest = 0;
+  for(let i = 0; i < solar_system_bodies.length; i++){
+    var force = solar_system_bodies[i].pull(signature_time,signature_position);
+    if(force > strongest){
+      strongest = force;
+      strongest_index = i;
+    }
+  }
+  var body = solar_system_bodies[strongest_index];
+  var body_mass = body.mass;
+  var body_position = body.position;
+  var conic = calculate_conic(
+    new Vector3(...signature_velocity),
+    new Vector3(...signature_position),
+    body_mass,
+    new Vector3(...body_position),
+    signature_time
+  );
+  console.log(conic)
+  return conic;
+}
 
 function compute_cache(orbital_parameters){
     var t = 0;
@@ -242,6 +387,45 @@ export function mean_to_true_anomaly(mean_anomaly,eccentricity){
     }  
     
     return eccentric_to_true_anomaly(anomaly,eccentricity);
+}
+
+export function hyperbolic_to_true_anomaly(hyperbolic_anomaly,eccentricity){
+    return 2*Math.atan2(
+        Math.tanh(hyperbolic_anomaly/2),
+        Math.sqrt((eccentricity-1)/(eccentricity+1))
+    );
+}
+
+export function true_to_hyperbolic_anomaly(true_anomaly, eccentricity){
+    return 2 * Math.atanh(
+        Math.sqrt((eccentricity-1)/(eccentricity+1))*Math.tan(true_anomaly/2)
+    )
+}
+
+export function true_to_mean_hyperbolic_anomaly(true_anomaly, eccentricity){
+    var sub_term_1 = eccentricity*Math.sqrt(eccentricity**2-1)*Math.sin(true_anomaly);
+    var sub_term_2 = (1+eccentricity*Math.cos(true_anomaly));
+    var term_1 = sub_term_1/sub_term_2;
+    var sub_term_3 = Math.sqrt(eccentricity+1);
+    var sub_term_4 = Math.sqrt(eccentricity-1)*Math.tan(true_anomaly/2);
+    var term_2 = Math.log((sub_term_3+sub_term_4)/(sub_term_3-sub_term_4));
+    return term_1-term_2;
+}
+
+export function mean_hyperbolic_to_true_anomaly(hyperbolic_mean_anomaly,eccentricity){
+    var hyperbolic_anomaly = Math.sign(hyperbolic_mean_anomaly)*eccentricity*Math.log10(Math.abs(hyperbolic_mean_anomaly));
+    var delta_hyperbolic_anomaly=1;
+    var delta_mean_hyperbolic_anomaly = 0;
+    var i = 0;
+    
+    while(Math.abs(delta_hyperbolic_anomaly)>1e-10 && i<100){
+        delta_mean_hyperbolic_anomaly = hyperbolic_mean_anomaly+hyperbolic_anomaly-eccentricity*Math.sinh(hyperbolic_anomaly);
+        delta_hyperbolic_anomaly = delta_mean_hyperbolic_anomaly/(1+eccentricity*Math.cosh(hyperbolic_anomaly));
+        hyperbolic_anomaly = delta_hyperbolic_anomaly+hyperbolic_anomaly;
+        i++
+    }  
+    
+    return hyperbolic_to_true_anomaly(hyperbolic_anomaly,eccentricity);
 }
 
 export function kepler_orbital_position(orbit_data,time_eph){

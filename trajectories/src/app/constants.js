@@ -35,35 +35,36 @@ for(let i = 0; i < units.length;i+=2){
             delta:t2[1]
         },
         inclination:{
-            initial:t1[2],
-            delta:t2[2]
+            initial:t1[2]/180*Math.PI,
+            delta:t2[2]/180*Math.PI
         },
         mean_longitude:{
-            initial:t1[3],
-            delta:t2[3]
+            initial:t1[3]/180*Math.PI,
+            delta:t2[3]/180*Math.PI
         },
         longitude_perihelion:{
-            initial:t1[4],
-            delta:t2[4]
+            initial:t1[4]/180*Math.PI,
+            delta:t2[4]/180*Math.PI
         },
         longitude_ascending:{
-            initial:t1[5],
-            delta:t2[5]
+            initial:t1[5]/180*Math.PI,
+            delta:t2[5]/180*Math.PI
         }
     }
 }
 
 export const planet_configs = {
-  "Sun":      { s_scalar: 1,  size: 7e8,   texture: "2k_sun.jpg",               mass: 1.989e30, position: [0,0,0]},
-  "Mercury":  { s_scalar: 50, size: 2.4e6, texture: "2k_mercury.jpg",           mass: 3.285e23 },
-  "Venus":    { s_scalar: 50, size: 6e6,   texture: "2k_venus_atmosphere.jpg",  mass: 4.867e24 },
-  "Earth":    { s_scalar: 50, size: 6.4e6, texture: "2k_earth_daymap.jpg",      mass: 5.97219e24 },
-  "Mars":     { s_scalar: 50, size: 3.4e6, texture: "2k_mars.jpg",              mass: 6.39e23 },
-  "Jupiter":  { s_scalar: 50, size: 7e7,   texture: "2k_jupiter.jpg",           mass: 1.898e27 },
-  "Saturn":   { s_scalar: 50, size: 6e7,   texture: "2k_saturn.jpg",            mass: 5.683e26 },
-  "Uranus":   { s_scalar: 50, size: 2.5e7, texture: "2k_uranus.jpg",            mass: 8.681e25 },
-  "Neptune":  { s_scalar: 50, size: 2.5e7, texture: "2k_neptune.jpg",           mass: 1.024e26 },
+  "Sun":      { s_scalar: 20,  size: 7e8,   texture: "2k_sun.jpg",               mass: 1.989e30, position: [0,0,0]},
+  "Mercury":  { s_scalar: 2000, size: 2.4e6, texture: "2k_mercury.jpg",           mass: 3.285e23 },
+  "Venus":    { s_scalar: 2000, size: 6e6,   texture: "2k_venus_atmosphere.jpg",  mass: 4.867e24 },
+  "Earth":    { s_scalar: 2000, size: 6.4e6, texture: "2k_earth_daymap.jpg",      mass: 5.97219e24 },
+  "Mars":     { s_scalar: 2000, size: 3.4e6, texture: "2k_mars.jpg",              mass: 6.39e23 },
+  "Jupiter":  { s_scalar: 2000, size: 7e7,   texture: "2k_jupiter.jpg",           mass: 1.898e27 },
+  "Saturn":   { s_scalar: 2000, size: 6e7,   texture: "2k_saturn.jpg",            mass: 5.683e26 },
+  "Uranus":   { s_scalar: 2000, size: 2.5e7, texture: "2k_uranus.jpg",            mass: 8.681e25 },
+  "Neptune":  { s_scalar: 2000, size: 2.5e7, texture: "2k_neptune.jpg",           mass: 1.024e26 },
 }
 
-export const AU = 1495978706.91;
+export const AU = 149597870700;
 export const Inv_AU = 1/AU;
+export const G = 6.67430e-11;

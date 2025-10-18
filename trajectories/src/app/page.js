@@ -35,8 +35,8 @@ function Box(props) {
 function Curve(props) {
   // Generate Catmull-Rom curve points
 
-  const meshRef = useRef();
-  const curveRef = useRef();
+  const displayRef = useRef();
+  const hitboxRef = useRef();
   const [positions, setPositions] = useState(new Float32Array());
   const [hovered, setHovered] = useState(false);
 
@@ -56,6 +56,15 @@ function Curve(props) {
           itemSize={3}/></bufferGeometry>);
   }
 
+  useFrame(()=>{
+    if(props.ref?.current){
+      if(props.ref.current.position){
+        displayRef.current.position.copy(props.ref.current.position);
+        hitboxRef.current.position.copy(props.ref.current.position);
+      }
+    }
+  })
+
   function handleHover(e){
     //console.log(e)
     color = ref
@@ -71,6 +80,7 @@ function Curve(props) {
   return (positions.length) ? (
     <group>
       <Line
+        ref={displayRef}
         points={props.points}
         color = {hovered?"red":"white"}
         onPointerOver = {()=>{setHovered(true)}}
@@ -80,6 +90,7 @@ function Curve(props) {
       >
       </Line>
       <Line
+        ref={hitboxRef}
         points={props.points}
         visible={false}
         onPointerMove={handleHover}
@@ -144,7 +155,7 @@ function KeplerBody(props){
       scale = {1}
       rotation = {[Math.PI/2,0,0]}
       >
-      <icosahedronGeometry args= {[celestial_body.size*Constants.Inv_AU*celestial_body.render_scalar,10,10]} ></icosahedronGeometry>
+      <icosahedronGeometry args= {[celestial_body.size*Constants.Inv_AU*celestial_body.render_scalar*Engine.au_to_system_units_scalar,10,10]} ></icosahedronGeometry>
       <meshStandardMaterial  {...(texture ? {map: texture} : {})} />
     </mesh>
     {orbit_points?
@@ -158,7 +169,8 @@ function KeplerBody(props){
 
 
 function ConicBody(props,texture){
-  const ref = useRef();
+  const spriteRef = useRef();
+  const curveRef = useRef({"position":new Vector3(0,0,0)});
 
   var conic_path = useMemo(()=>{
     return Engine.calculate_conic_path(
@@ -170,18 +182,31 @@ function ConicBody(props,texture){
 
   var sprite = useTexture(props.textureURL)
   useFrame(()=>{
-    if(ref.current){
-      ref.current.position.copy(conic_path.position_at_time(props.timestamp.current).multiplyScalar(Engine.meters_to_system_units_scalar));
+    if(spriteRef.current){
+      //ref.current.position.copy(new Vector3(...props.signature_position.map(v=>v/Constants.AU*Engine.au_to_system_units_scalar)))
+      var orbit_position = conic_path.conic.position_at_time(props.timestamp.current).multiplyScalar(Engine.meters_to_system_units_scalar);
+
+      var orbit_data = conic_path.body.position_at_timestamp(props.timestamp.current);
+      var position = orbit_data[0];
+      var body_position = new Vector3(...position.map(v=>v*Engine.au_to_system_units_scalar));
+
+      orbit_position.add(body_position);
+
+      spriteRef.current.position.copy(orbit_position);
+      if(curveRef?.current){
+        curveRef.current.position.copy(body_position);
+      } else {}
     }
   })
 
   return (<group>
     <Curve
-      points = {conic_path.vec3Cache}
+      ref={curveRef}
+      points = {conic_path.conic.vec3Cache}
       color="white"
     />
     <sprite
-    ref = {ref}
+    ref = {spriteRef}
       scale = {0.05}
     >
       <spriteMaterial {...(sprite ? {map: sprite} : {})}
@@ -203,6 +228,9 @@ function ZUp() {
   const { camera } = useThree()
   useEffect(() => {
     camera.up.set(0, 0, 1)
+    camera.frustumCulled = false;
+    camera.near = 1e-10
+    camera.far = 1e10
     camera.updateProjectionMatrix()
   }, [camera])
   return null
@@ -230,10 +258,11 @@ export default function Home() {
           <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} decay={0} intensity={Math.PI} />
           <pointLight position={[-10, -10, -10]} decay={0} intensity={Math.PI} />
           {planet_objects}
-          <ConicBody signature_position = {[5e10,5e8,0]} signature_velocity={[30000,-70000,0]} signature_time={0} timestamp={timestamp} textureURL = "vercel.svg"/>
+          <ConicBody signature_position = {[-2.7e10,1.445e11,0]} signature_velocity={[1000,-10,0]} signature_time={0} timestamp={timestamp} textureURL = "vercel.svg"/>
           <ZUp/>
           <OrbitControls 
             position = {[0,0,0]}
+            minDistance={1}
             minPolarAngle={-Math.PI}  // 45° from top
             maxPolarAngle={Math.PI}  // lock to equatorial plane
           />

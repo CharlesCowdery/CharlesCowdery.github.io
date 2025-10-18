@@ -4,11 +4,11 @@ import * as Constants from "./constants"
 
 const JD_J2000 = 2451545.0;       // JD of 2000 Jan 1.5 (noon)
 const DAYS_PER_CENTURY = 36525.0;
-export var au_to_system_units_scalar = 2;
+export var au_to_system_units_scalar = 10;
 export var orbit_resolution = 1000;
 export const cache_scalar = 10;
 export const cache_resolution = orbit_resolution*cache_scalar;
-export const ms_per_ms = 1000*60*60*24;
+export const ms_per_ms = 0*1000*60*60*24;
 export const init_time = new Date();
 
 class CelestialObject{
@@ -27,12 +27,18 @@ class CelestialObject{
         if(Array.isArray(this.orbit_parameters)) return [this.position,0];
         return kepler_orbital_position(this.orbit_parameters,time_to_kepler_time(t));
     }
-    pull(t,pos){
-        var position = this.position_at_timestamp(t)[0];
+    distance2(t,pos){
+        var position = this.position_at_timestamp(t)[0].map(v=>v*Constants.AU);
         var a = (position[0]-pos[0]);
         var b = (position[1]-pos[1]);
         var c = (position[2]-pos[2]);
+        //console.log(`${this.name} pos`,position.map(v=>v/Constants.AU),t)
+        //console.log("obj pos", pos.map(v=>v/Constants.AU),t)
         var dist_2 = a*a+b*b+c*c
+        return dist_2
+    }
+    pull(t,pos){
+        var dist_2 = this.distance2(t,pos);
         return Constants.G*this.mass/dist_2;
     }
     copy(){
@@ -113,7 +119,7 @@ export class Conic{
   position_at_time(t){
     var delta_t = t-this.initial_time;
     var delta_mean_anomaly = delta_t*this.mean_anomaly_per_ms;
-    var mean_anomaly = -this.initial_mean_anomaly+delta_mean_anomaly;
+    var mean_anomaly = this.initial_mean_anomaly+delta_mean_anomaly;
     if(this.eccentricity<1){
       var true_anomaly = mean_to_true_anomaly(mean_anomaly,this.eccentricity);
     } else {
@@ -131,10 +137,7 @@ export function calculate_conic(velocity, position, body_mass, body_position, si
 
   var plane_normal = relative_position.clone().normalize().cross(velocity.clone().normalize());
   
-  var w = Math.cos(Math.acos(plane_normal.z)/2);
-  var axis = plane_normal.clone().cross(new Vector3(0,0,1)).multiplyScalar(Math.sqrt(1-w*w));
-
-  var rotation = new Quaternion(axis.x,axis.y,axis.z,w);
+  var rotation = new Quaternion().setFromUnitVectors(new Vector3(0,0,1),plane_normal)
   var inv_rotation = rotation.invert();
 
   var projected_position = relative_position.clone().applyQuaternion(inv_rotation);
@@ -160,7 +163,12 @@ export function calculate_conic(velocity, position, body_mass, body_position, si
   var theta_position = Math.atan2(projected_position.y, projected_position.x);
   var adjustment = Math.sign(projected_position.clone().dot(projected_velocity))*Math.sign(projected_position.clone().cross(projected_velocity).z)*Math.acos((scalar/radius-1)/eccentricity)-theta_position;
 
-  
+    console.log("Conic Debug",{
+        position,
+        body_position,
+        relative_position,
+        projected_position
+    })
 
   return new Conic(
       eccentricity,
@@ -175,12 +183,20 @@ export function calculate_conic(velocity, position, body_mass, body_position, si
     );
 }
 
+class ConicSection{
+    constructor(conic,body){
+        this.conic = conic;
+        this.body  = body;
+    }
+}
+
 export function calculate_conic_path(signature_position,signature_velocity,signature_time){
   console.log("calculating conic path")
   var strongest_index = 0;
   var strongest = 0;
   for(let i = 0; i < solar_system_bodies.length; i++){
     var force = solar_system_bodies[i].pull(signature_time,signature_position);
+    //console.log(solar_system_bodies[i].name,Math.sqrt(solar_system_bodies[i].distance2(signature_time,signature_position))/Constants.AU,force)
     if(force > strongest){
       strongest = force;
       strongest_index = i;
@@ -188,7 +204,9 @@ export function calculate_conic_path(signature_position,signature_velocity,signa
   }
   var body = solar_system_bodies[strongest_index];
   var body_mass = body.mass;
-  var body_position = body.position;
+  var body_position = body.position_at_timestamp(signature_time)[0].map(v=>v*Constants.AU);
+    console.log("selected body: ",body.name)
+
   var conic = calculate_conic(
     new Vector3(...signature_velocity),
     new Vector3(...signature_position),
@@ -196,8 +214,10 @@ export function calculate_conic_path(signature_position,signature_velocity,signa
     new Vector3(...body_position),
     signature_time
   );
-  console.log(conic)
-  return conic;
+
+  var section = new ConicSection(conic,body);
+
+  return section;
 }
 
 function compute_cache(orbital_parameters){

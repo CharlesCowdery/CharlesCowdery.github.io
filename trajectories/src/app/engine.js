@@ -4,20 +4,29 @@ import * as Constants from "./constants"
 
 const JD_J2000 = 2451545.0;       // JD of 2000 Jan 1.5 (noon)
 const DAYS_PER_CENTURY = 36525.0;
-export var au_to_system_units_scalar = 10;
+export var au_to_system_units_scalar = 1;
+export var global_offset = new Vector3(0,0,0);
+
 export var orbit_resolution = 1000;
 export const cache_scalar = 10;
 export const cache_resolution = orbit_resolution*cache_scalar;
-export const ms_per_ms = 0*1000*60*60*24;
+export const ms_per_ms = 10*60*60*24;
 export const init_time = new Date();
+export const max_view = 1e4;
+export const max_camera_dist = 1e2
+
+export function set_scalar(v){
+  au_to_system_units_scalar = v;
+}
 
 class CelestialObject{
-    constructor(name, size, mass, orbit_parameters, orbital_cache, render_scalar, textureURL,  ){
+    constructor(name, size, mass, orbit_parameters, orbital_cache, render_scalar, textureURL, color  ){
         this.name = name;
         this.size = size;
         this.mass = mass;
         this.render_scalar = render_scalar
         this.textureURL = textureURL;
+        this.color = color;
         this.position = [0,0,0];
         this.orbit_parameters = orbit_parameters;
         this.orbital_cache = orbital_cache;
@@ -279,7 +288,7 @@ for(let name in Constants.planet_configs){
     let orbital_parameters = Constants.planet_constants[name.toLowerCase()] ?? config.position;
     let orbital_cache = new Float32Array([]);
     if(Constants.planet_constants[name.toLowerCase()]) orbital_cache = compute_cache(orbital_parameters);
-    let cel_obj = new CelestialObject(name,config.size,config.mass,orbital_parameters,orbital_cache,config.s_scalar,config.texture);
+    let cel_obj = new CelestialObject(name,config.size,config.mass,orbital_parameters,orbital_cache,config.s_scalar,config.texture,config.color);
     solar_system_bodies_.push(cel_obj);
 }
 var end = new Date();
@@ -493,4 +502,17 @@ var y_eccl = ( sinLa*cos_perihelion + cosLa*sin_perihelion*cos_I) * x_prime
 var z_eccl = (sin_perihelion*sin_I) * x_prime + (cos_perihelion*sin_I) * y_prime;
 
     return [[x_eccl,y_eccl,z_eccl],mean_anomaly];
+}
+
+export function formatDate(date) {
+  const pad = (n) => n.toString().padStart(2, '0');
+
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1); // Months are 0-indexed
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+
+  return `${year}:${month}:${day} ${hours}:${minutes}:${seconds}`;
 }

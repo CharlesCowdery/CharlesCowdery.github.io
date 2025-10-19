@@ -10,14 +10,34 @@ export var global_offset = new Vector3(0,0,0);
 export var orbit_resolution = 1000;
 export const cache_scalar = 10;
 export const cache_resolution = orbit_resolution*cache_scalar;
-export const ms_per_ms = 10*60*60*24;
 export const init_time = new Date();
-export const max_view = 1e4;
+export const max_view = 1e3;
 export const max_camera_dist = 1e2
+export var warp_state = 2;
+export var ms_per_ms = 0;
+
+export const warps = [
+  {step:0,            name:"",    unit:"Pause"},
+  {step:1,            name:"1",   unit:"x"},
+  {step:2,            name:"2",   unit:"x"},
+  {step:10,           name:"10",  unit:"x"},
+  {step:60,           name:"1",   unit:"Min/s"},
+  {step:60*60,        name:"1",   unit:"Hr/s"},
+  {step:60*60*24,     name:"1",   unit:"Day/s"},
+  {step:60*60*24*30,  name:"1",   unit:"Month/s"},
+  {step:60*60*24*365, name:"1",   unit:"Year/s"},
+]
 
 export function set_scalar(v){
   au_to_system_units_scalar = v;
 }
+
+export function set_warp(v){
+  warp_state = v;
+  ms_per_ms = warps[warp_state].step;
+}
+
+set_warp(6)
 
 class CelestialObject{
     constructor(name, size, mass, orbit_parameters, orbital_cache, render_scalar, textureURL, color  ){
@@ -30,19 +50,32 @@ class CelestialObject{
         this.position = [0,0,0];
         this.orbit_parameters = orbit_parameters;
         this.orbital_cache = orbital_cache;
+        this.emissive=0;
     }
     position_at_timestamp(t){
         t = t-this.orbital_cache.period*Math.floor(t*this.orbital_cache.inv_period)
         if(Array.isArray(this.orbit_parameters)) return [this.position,0];
         return kepler_orbital_position(this.orbit_parameters,time_to_kepler_time(t));
     }
+    position_at_timestamp_vec3(t){
+      return new Vector3(...this.position_at_timestamp(t)[0]);
+    }
+    velocity_at_timestamp(t){
+      t = t-this.orbital_cache.period*Math.floor(t*this.orbital_cache.inv_period)
+      if(Array.isArray(this.orbit_parameters)) return [0,0,0];
+      var delta = 1;
+      var p1 = this.position_at_timestamp_vec3(t);
+      var p2 = this.position_at_timestamp_vec3(t+delta);
+      return p2.sub(p1).divideScalar(delta).multiplyScalar(1000); // because delta is in milliseconds. jank
+    }
+    velocity_at_timestamp_vec3(t){
+      return new Vector3(...this.velocity_at_timestamp(t));
+    }
     distance2(t,pos){
         var position = this.position_at_timestamp(t)[0].map(v=>v*Constants.AU);
         var a = (position[0]-pos[0]);
         var b = (position[1]-pos[1]);
         var c = (position[2]-pos[2]);
-        //console.log(`${this.name} pos`,position.map(v=>v/Constants.AU),t)
-        //console.log("obj pos", pos.map(v=>v/Constants.AU),t)
         var dist_2 = a*a+b*b+c*c
         return dist_2
     }
@@ -84,9 +117,13 @@ export class Conic{
     this.gravitational_force  = gravitational_force;
     this.angular_momentum     = angular_momentum
     this.direction            = Math.sign(angular_momentum);
+    this.apoapsis             = scalar/(1-eccentricity);
+    this.periapsis            = scalar/(1+eccentricity);
+    this.specific_energy      = 0.5*angular_momentum**2-gravitational_force/this.periapsis;
     this.semi_major_axis      = scalar/(1+eccentricity*eccentricity);
     this.minimum_bound        = (eccentricity<=1)?0:-Math.acos(-1/eccentricity)+this.epsilon;
-    this.maximum_bound        = (eccentricity<=1)?2*Math.PI:Math.acos(-1/eccentricity)-this.epsilon;
+    this.maximum_bound        = (eccentricity<=1)?2*Math.PI:Math.acos(-1/eccentricity)-this.epsilon+1;
+
 
     if(eccentricity<1){
       this.mean_anomaly_per_ms = this.direction*Math.sqrt(gravitational_force/this.semi_major_axis**3)/1000;
@@ -94,16 +131,22 @@ export class Conic{
     } else {
       this.mean_anomaly_per_ms = (gravitational_force**2/angular_momentum**3)*((eccentricity**2-1)**(3/2))/1000;
       this.initial_mean_anomaly = true_to_mean_hyperbolic_anomaly(initial_true_anomaly,eccentricity);
+      if(this.direction>0){
+        this.minimum_bound = initial_true_anomaly;
+      } else {
+        this.maximum_bound = initial_true_anomaly;
+      }
     }
 
 
-    this.compute_cache(orbit_resolution);
+    this.compute_cache(orbit_resolution*cache_scalar);
   }
   compute_cache(count){
     let is_hyperbolic = this.eccentricity>=1;
     let anomaly_start = this.minimum_bound;
     let anomaly_end = this.maximum_bound;
     let interval = (anomaly_end-anomaly_start)/count;
+    this.cacheTime = new Float32Array(count);
     this.cache = new Float32Array(count*3);
     this.vec3Cache = new Array(count + ((!is_hyperbolic)?1:0)); //if its non-hyperbolic, one additional point is needed to close the loop
     var anomaly = anomaly_start
@@ -111,12 +154,24 @@ export class Conic{
     let i = 0;
     for(i = 0; i < count; i++, anomaly+=interval){
       var point = this.sample_at_true_anomaly(anomaly);
+      this.cacheTime[i] = this.time_at_anomaly(anomaly);
       this.cache[iterator++] = point.x;
       this.cache[iterator++] = point.y;
       this.cache[iterator++] = point.z;
       this.vec3Cache[i] = point.multiplyScalar(meters_to_system_units_scalar);
     }
     if(!is_hyperbolic) this.vec3Cache[i] = this.vec3Cache[0]; //if non-hyperbolic, close loop
+  }
+  time_at_anomaly(true_anomaly){
+    var mean_anomaly;
+    if(this.eccentricity<1){
+      mean_anomaly = true_to_mean_anomaly(true_anomaly,this.eccentricity);
+    } else {
+      mean_anomaly = true_to_mean_hyperbolic_anomaly(true_anomaly,this.eccentricity);
+    }
+    mean_anomaly-=this.initial_mean_anomaly;
+    var delta_t = mean_anomaly/this.mean_anomaly_per_ms;
+    return this.initial_time+delta_t;
   }
   sample_at_true_anomaly(true_anomaly){
     var rotator = new Vector3(Math.cos(true_anomaly-this.adjustment),Math.sin(true_anomaly-this.adjustment),0);
@@ -125,7 +180,7 @@ export class Conic{
     position = position.applyQuaternion(this.rotation_from_xy);
     return position;
   }
-  position_at_time(t){
+  true_anomaly_at_time(t){
     var delta_t = t-this.initial_time;
     var delta_mean_anomaly = delta_t*this.mean_anomaly_per_ms;
     var mean_anomaly = this.initial_mean_anomaly+delta_mean_anomaly;
@@ -134,17 +189,29 @@ export class Conic{
     } else {
       var true_anomaly = mean_hyperbolic_to_true_anomaly(mean_anomaly,this.eccentricity);
     }
-    return this.sample_at_true_anomaly(true_anomaly);
+    return true_anomaly;
+  }
+  position_at_time(t){
+    return this.sample_at_true_anomaly(this.true_anomaly_at_time(t));
+  }
+  velocity_at_time(t){
+    var delta = 0.01
+    var pos_at_time_1 = this.position_at_time(t);
+    var pos_at_time_2 = this.position_at_time(t+delta);
+    var velocity = pos_at_time_2.clone().sub(pos_at_time_1).divideScalar(delta);
+    console.log(t,t+delta,pos_at_time_1,pos_at_time_2,velocity)
+    return velocity;
   }
 
 }
 
-export function calculate_conic(velocity, position, body_mass, body_position, signature_time){
+export function calculate_conic(velocity, position, body_mass, body_position, body_velocity, signature_time){
   var relative_position = position.clone().sub(body_position);
 
-  var relative_velocity_offset = velocity.clone().add(relative_position);
+  var relative_velocity = velocity.clone().sub(body_velocity);
+  var relative_velocity_offset = relative_velocity.clone().add(relative_position);
 
-  var plane_normal = relative_position.clone().normalize().cross(velocity.clone().normalize());
+  var plane_normal = relative_position.clone().cross(relative_velocity).normalize();
   
   var rotation = new Quaternion().setFromUnitVectors(new Vector3(0,0,1),plane_normal)
   var inv_rotation = rotation.invert();
@@ -172,12 +239,19 @@ export function calculate_conic(velocity, position, body_mass, body_position, si
   var theta_position = Math.atan2(projected_position.y, projected_position.x);
   var adjustment = Math.sign(projected_position.clone().dot(projected_velocity))*Math.sign(projected_position.clone().cross(projected_velocity).z)*Math.acos((scalar/radius-1)/eccentricity)-theta_position;
 
-    console.log("Conic Debug",{
-        position,
-        body_position,
-        relative_position,
-        projected_position
-    })
+  console.log({
+    rotation,
+    inv_rotation,
+    plane_normal,
+    position,
+    body_position,
+    velocity,
+    body_velocity,
+    relative_position,
+    relative_velocity,
+    projected_position,
+    projected_velocity
+})
 
   return new Conic(
       eccentricity,
@@ -193,40 +267,109 @@ export function calculate_conic(velocity, position, body_mass, body_position, si
 }
 
 class ConicSection{
-    constructor(conic,body){
+    constructor(conic,body,signature_time,signature_position,signature_velocity){
         this.conic = conic;
         this.body  = body;
+        this.signature_time = signature_time;
+        this.signature_position = signature_position;
+        this.signature_velocity = signature_velocity;
+        this.relative_signature_position 
+    }
+    calculate_origination(){
+        this.origination=null;
+        this.termination=null;
+        if(this.conic.eccentricity>=1){
+        var can_originate = true;
+        var can_terminate = false;
+        var latest_origination = -1;
+        var soonest_termination = this.conic.vec3Cache.length;
+        var position = [0,0,0]
+        var can_log = true;
+        for(let i = 0; i < this.conic.vec3Cache.length; i++){
+          var t = this.conic.cacheTime[i];
+          var body_pos = kepler_orbital_position(this.body.orbit_parameters,time_to_kepler_time(t))[0];
+          position[0] = this.conic.cache[i*3+0]+body_pos[0]*Constants.AU;
+          position[1] = this.conic.cache[i*3+1]+body_pos[1]*Constants.AU;
+          position[2] = this.conic.cache[i*3+2]+body_pos[2]*Constants.AU;
+          var nearest = fetch_strongest_pull_at_time_t(position,t);
+          if(i%100==0){
+            //console.log(t,nearest.name, position)
+          }
+          if(nearest.name!=this.body.name){
+            if(can_originate){
+              latest_origination=i;
+            }
+            if(can_terminate){
+              soonest_termination = i;
+              break;
+            }
+          } else {
+            can_originate = false;
+            can_terminate = true;
+          }
+        }
+
+        if(latest_origination!=-1){
+          this.origination = this.conic.cacheTime[latest_origination];
+          this.conic.minimum_bound = this.conic.true_anomaly_at_time(this.origination);
+        } 
+        if(soonest_termination!=this.conic.vec3Cache.length){
+          this.termination = this.conic.cacheTime[soonest_termination];
+          this.conic.maximum_bound = this.conic.true_anomaly_at_time(this.termination);
+        } 
+        this.conic.compute_cache(orbit_resolution*cache_scalar);
+      }
     }
 }
 
-export function calculate_conic_path(signature_position,signature_velocity,signature_time){
-  console.log("calculating conic path")
+function fetch_strongest_pull_at_time_t(position,t){
   var strongest_index = 0;
   var strongest = 0;
   for(let i = 0; i < solar_system_bodies.length; i++){
-    var force = solar_system_bodies[i].pull(signature_time,signature_position);
-    //console.log(solar_system_bodies[i].name,Math.sqrt(solar_system_bodies[i].distance2(signature_time,signature_position))/Constants.AU,force)
+    var force = solar_system_bodies[i].pull(t,position);
     if(force > strongest){
       strongest = force;
       strongest_index = i;
     }
   }
-  var body = solar_system_bodies[strongest_index];
-  var body_mass = body.mass;
-  var body_position = body.position_at_timestamp(signature_time)[0].map(v=>v*Constants.AU);
-    console.log("selected body: ",body.name)
+  return solar_system_bodies[strongest_index];
+}
 
-  var conic = calculate_conic(
-    new Vector3(...signature_velocity),
-    new Vector3(...signature_position),
-    body_mass,
-    new Vector3(...body_position),
-    signature_time
-  );
+export function calculate_conic_path(signature_position,signature_velocity,signature_time){
+  var path = [];
+  
+  for(let i = 0; i < 2; i++){
+    var body = fetch_strongest_pull_at_time_t(signature_position,signature_time);
+    var body_mass = body.mass;
+    var body_position = body.position_at_timestamp_vec3(signature_time).multiplyScalar(Constants.AU);
+    var body_velocity = body.velocity_at_timestamp_vec3(signature_time).multiplyScalar(Constants.AU);
 
-  var section = new ConicSection(conic,body);
+    console.log(signature_velocity,body_velocity)
 
-  return section;
+    var conic = calculate_conic(
+      new Vector3(...signature_velocity),
+      new Vector3(...signature_position),
+      body_mass,
+      body_position,
+      body_velocity,
+      signature_time
+    );
+    var section = new ConicSection(conic,body,signature_time,signature_position,signature_velocity);
+    section.calculate_origination();
+    section.calculate_origination();
+    path.push(section);
+    if(section.termination == null) break;
+    signature_time = section.termination;
+    console.log(signature_time);
+    body_position = body.position_at_timestamp_vec3(signature_time).multiplyScalar(Constants.AU);
+    body_velocity = body.velocity_at_timestamp_vec3(signature_time).multiplyScalar(Constants.AU);
+    signature_position = section.conic.position_at_time(signature_time).add(body_position);
+    signature_velocity = section.conic.velocity_at_time(signature_time).add(body_velocity);
+    
+  }
+  console.log(path);
+
+  return path;
 }
 
 function compute_cache(orbital_parameters){
@@ -289,11 +432,11 @@ for(let name in Constants.planet_configs){
     let orbital_cache = new Float32Array([]);
     if(Constants.planet_constants[name.toLowerCase()]) orbital_cache = compute_cache(orbital_parameters);
     let cel_obj = new CelestialObject(name,config.size,config.mass,orbital_parameters,orbital_cache,config.s_scalar,config.texture,config.color);
+    if(config.emissive) cel_obj.emissive = config.emissive
     solar_system_bodies_.push(cel_obj);
 }
 var end = new Date();
 
-console.log (end-start);
 
 export const solar_system_bodies = solar_system_bodies_;
 

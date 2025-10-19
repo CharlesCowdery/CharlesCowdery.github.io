@@ -54,7 +54,7 @@ for(let i = 0; i < units.length;i+=2){
 }
 
 export const planet_configs = {
-  "Sun":      {color:"#ffff00", s_scalar: 1,  size: 7e8,   texture: "2k_sun.jpg",               mass: 1.989e30, position: [1,1,1]},
+  "Sun":      {emissive: 200, color:"#ffff00", s_scalar: 1,  size: 7e8,   texture: "2k_sun.jpg",               mass: 1.989e30, position: [1,1,1]},
   "Mercury":  {color:"#e4eef0", s_scalar: 1, size: 2.4e6, texture: "2k_mercury.jpg",           mass: 3.285e23, },
   "Venus":    {color:"#fffeab", s_scalar: 1, size: 6e6,   texture: "2k_venus_atmosphere.jpg",  mass: 4.867e24 },
   "Earth":    {color:"#528eff", s_scalar: 1, size: 6.4e6, texture: "2k_earth_daymap.jpg",      mass: 5.97219e24 },

@@ -131,7 +131,6 @@ function Curve(props) {
     </sprite>
   )
 
-  var color = "white";
 
   //var points = useMemo(()=>points.flatMap(p=>[p.x,p.y,p.z]),[points]);
 
@@ -140,7 +139,7 @@ function Curve(props) {
       <Line
         ref={displayRef}
         points={props.points}
-        color = {hovered?"red":"white"}
+        color = {hovered?"red":props.color}
         onPointerOver = {()=>{setHovered(true)}}
         onPointerOut = {()=>{setHovered(false)}}
         onPointerMove = {()=>{}}
@@ -217,6 +216,8 @@ const Halo = forwardRef((props, ref) => {
       <div className='rounded-full min-h-full border-2'></div></div>
   )
 })
+
+Halo.displayName="Halo"
 
 function KeplerBody(props){
   const ref = useRef()
@@ -314,8 +315,8 @@ function KeplerBody(props){
     const screenY = (-ndc.y + 1) / 2 * size.height;
 
     props.onMenuOpen(screenX,screenY,celestial_body.name,[
-      <ContextMenuOption title="focus camera" onClick={focusCamera}/>,
-      <ContextMenuOption title="target"/>
+      <ContextMenuOption title="focus camera" onClick={focusCamera} key={1}/>,
+      <ContextMenuOption title="target" key={2}/>
     ])
   }
 
@@ -407,8 +408,9 @@ function ConicBody(props,texture){
       <Curve
       ref={curveRef}
       points = {conic_path[i].conic.vec3Cache}
-      color="white"
+      color="#aaaaff"
       id = {i}
+      key={i}
     />
     )
     curves.push(curve);
@@ -489,7 +491,7 @@ function FrameTracker(props){
 
 
     if(props.cameraRefocusRef.current){
-      var target_dist = props.cameraFocusRef.current.scale.x*10;
+      var target_dist = props.cameraFocusRef.current.scale.x*200;
       var delta = state.camera.position.clone().sub(props.cameraFocusRef.current.position);
       var current_dist = state.camera.position.distanceTo(props.cameraFocusRef.current.position);
       var scalar = target_dist/current_dist
@@ -552,7 +554,7 @@ function Clock(props){
 
   return(
       <div 
-        className={`${robotoMono.className} rounded-bl-full absolute p-0.5 pl-7 top-0 right-0 bg-gray-700 text-3xl`}>
+        className={`${robotoMono.className} rounded-bl-full absolute p-0.5 pl-7 top-0 right-0 bg-gray-800 text-3xl`}>
         <div
         ref = {clockRef}>
         </div>
@@ -581,10 +583,10 @@ function ContextMenuOption(props){
   var className = "pl-1 pr-1 ";
 
   if(isActive){
-    className += "bg-gray-700 ";
+    className += "bg-gray-800 ";
   }
   else if(isHovered){
-    className += "bg-gray-800 ";
+    className += "bg-gray-900 ";
   }
 
   function onMouseDown(e){
@@ -689,6 +691,103 @@ function LoadingScreen(props){
   )
 }
 
+function TrackedHandle(props){
+  const [isGrabbed, setGrabbed] = useState(false);
+  const [isHovered, setHovered] = useState(false);
+  const [dist, setDist] = useState(0);
+  const [mouseStart,setMouseStart] = useState(0);
+  const grabRef = useRef(false);
+  const startRef = useRef(new Vector3(0,0,0));
+
+  grabRef.current = isGrabbed
+  startRef.current = mouseStart;
+
+  const height_coef = Math.sin(props.angle);
+  const width_coef = Math.cos(props.angle);
+  const direction_vector = new Vector3(width_coef,height_coef);
+  const width = width_coef*props.maxPull+"rem";
+  const height= height_coef*props.maxPull+"rem";
+
+  var scalar = 1;
+  if(isHovered) scalar=1.2;
+
+  var cursor_type = "pointer"
+  if(isGrabbed) cursor_type = "move"
+
+  function clickEvent(e,state){
+    setGrabbed(state);
+    setDist(0);
+    setMouseStart(new Vector3(e.clientX,e.clientY,0))
+  }
+
+  var container = {grabRef,startRef};
+
+  function mouseMove(e){
+    if(grabRef.current){
+      var pos = new Vector3(e.clientX,e.clientY,0);
+      var delta = pos.clone().sub(startRef.current);
+      var dist=-delta.dot(direction_vector)/(direction_vector.length()**2);
+      dist = Math.min(Math.max(0,dist),props.maxPull);
+      setDist(dist);
+    }
+  }
+
+  useEffect(()=>{
+    var clickFunc = (e)=>{clickEvent(e,false)};
+    var dragFunc = (e)=>{mouseMove(e)};
+    document.addEventListener("mouseup",clickFunc);
+    document.addEventListener("mousemove",dragFunc)
+    return ()=>{
+      document.removeEventListener("mouseup",clickFunc);
+      document.removeEventListener("mousemove",dragFunc);
+    }
+  },[])
+
+  return(
+  <div className='absolute left-0 bottom-0' style={{
+  }}>
+    <div 
+    onMouseDown={(e)=>clickEvent(e,true)}
+    onMouseOver={()=>setHovered(true)}
+    onMouseOut={()=>setHovered(false)}
+    className="rounded-full absolute"
+    style={{
+      width:  props.radius*2*scalar+"rem",
+      height: props.radius*2*scalar+"rem",
+      left:   `calc( ${dist*width_coef}px  - ${props.radius*scalar}rem)`,
+      bottom: `calc( ${dist*height_coef}px - ${props.radius*scalar}rem)`,
+      backgroundColor:props.color,
+      cursor:cursor_type
+    }}>
+
+    </div>
+  </div>)
+}
+
+function ControlPlane(props){
+
+
+  return (
+    <div className='w-100 h-95 bottom-0 absolute flex flex-col items-begin'>
+      <div className='w-65 h-55 rounded-tr-[6em] bg-gray-800 flex items-end justify-center relative'>
+        <div className="w-55 h-55 rounded-full bg-[#fff] flex items-center justify-center">
+          <img src="controls.png"/>
+        </div>
+        <div className="w-55 h-55 absolute left-5 top-0">
+          <div className="w-0 h-0 absolute" style={{left:"5.15rem",top:"3rem"}}><TrackedHandle angle={Math.PI*0.61} color="#8c44d5ff" radius={1} maxPull={30}/></div>
+          <div className="w-0 h-0 absolute" style={{left:"7.95rem",top:"10.8rem"}}><TrackedHandle angle={Math.PI*0.61+Math.PI} color="#4a0091ff" radius={1} maxPull={30}/></div>
+          <div className="w-0 h-0 absolute" style={{left:"12.5rem",top:"2.5rem"}}><TrackedHandle angle={Math.PI*0.2} color="#00cf3aff" radius={1} maxPull={30}/></div>
+          <div className="w-0 h-0 absolute" style={{left:"1.5rem",top:"11rem"}}><TrackedHandle angle={Math.PI*1.2} color="#44ff7aff" radius={1} maxPull={30}/></div>
+          <div className="w-0 h-0 absolute" style={{left:"3.05rem",top:"4.10rem"}}><TrackedHandle angle={Math.PI*0.81} color="#18bafbff" radius={1} maxPull={30}/></div>
+          <div className="w-0 h-0 absolute" style={{left:"9.65rem",top:"8.75rem"}}><TrackedHandle angle={Math.PI*0.61} color="#58faffff" radius={1} maxPull={30}/></div>
+
+        </div>
+      </div>
+      <div className='w-100 h-50 rounded-tr-full bg-gray-800'></div>
+    </div>
+  )
+}
+
 export default function Home() {
   const oControlsRef = useRef()
   const timestamp = useRef(0);
@@ -739,6 +838,9 @@ export default function Home() {
             </ContextMenu>):null
           }
           <Clock ref={clockRef}/>
+          <div className="min-h-screen w-0 absolute" >
+            <ControlPlane/>
+          </div>
         </div>
         <Canvas>
           <EffectComposer>
@@ -748,7 +850,7 @@ export default function Home() {
               luminanceSmoothing={0.9}
             />
           </EffectComposer>
-          <Skysphere textureURL={"starmap_2020_16k_low.webp"}/>
+          <Skysphere textureURL={"2k_stars_milky_way.jpg"}/>
           <FrameTracker  
             cameraRef={oControlsRef}
             cameraFocusRef={cameraFocusRef}
@@ -767,21 +869,21 @@ export default function Home() {
           enablePan={false}
             ref={oControlsRef}
             position = {[0,0,0]}
-            minDistance={0.001}
+            minDistance={0.008}
             maxDistance={Engine.max_camera_dist}
             minPolarAngle={-Math.PI}  // 45° from top
             maxPolarAngle={Math.PI}  // lock to equatorial plane
           />
         </Canvas>
       </div>
-      <div className = "w-75 min-h-screen bg-gray-700 block">
+      {/*<div className = "w-75 min-h-screen bg-gray-700 block">
           <div className='w-75'>
             <div className='h-10 ml-1 text-3xl'>Info</div>
           </div>
           <div classname="w-75">
 
           </div>
-      </div>
+      </div>*/}
     </div>
   );
 }

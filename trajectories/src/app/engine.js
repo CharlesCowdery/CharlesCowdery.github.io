@@ -7,7 +7,7 @@ const DAYS_PER_CENTURY = 36525.0;
 export var au_to_system_units_scalar = 1;
 export var global_offset = new Vector3(0,0,0);
 
-export var orbit_resolution = 1000;
+export var orbit_resolution = 2000;
 export const cache_scalar = 10;
 export const cache_resolution = orbit_resolution*cache_scalar;
 export const init_time = new Date();

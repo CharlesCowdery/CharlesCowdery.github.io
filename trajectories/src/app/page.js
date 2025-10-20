@@ -273,7 +273,7 @@ function KeplerBody(props){
         var culling_size = 0.0005;
         var shrink_size = 0.005;
         var min_radius = 3
-        var hide_on_radius = 1;
+        var hide_on_radius = 100;
         var transparency = 1;
         var scalar;
         if(pixelRadius<culling_size){
@@ -705,8 +705,6 @@ function TrackedHandle(props){
   const height_coef = Math.sin(props.angle);
   const width_coef = Math.cos(props.angle);
   const direction_vector = new Vector3(width_coef,height_coef);
-  const width = width_coef*props.maxPull+"rem";
-  const height= height_coef*props.maxPull+"rem";
 
   var scalar = 1;
   if(isHovered) scalar=1.2;
@@ -714,18 +712,19 @@ function TrackedHandle(props){
   var cursor_type = "pointer"
   if(isGrabbed) cursor_type = "move"
 
+  props.callback(dist/props.maxPull);
+
   function clickEvent(e,state){
     setGrabbed(state);
     setDist(0);
     setMouseStart(new Vector3(e.clientX,e.clientY,0))
   }
 
-  var container = {grabRef,startRef};
-
   function mouseMove(e){
     if(grabRef.current){
       var pos = new Vector3(e.clientX,e.clientY,0);
       var delta = pos.clone().sub(startRef.current);
+      delta.x = -delta.x;
       var dist=-delta.dot(direction_vector)/(direction_vector.length()**2);
       dist = Math.min(Math.max(0,dist),props.maxPull);
       setDist(dist);
@@ -766,6 +765,9 @@ function TrackedHandle(props){
 
 function ControlPlane(props){
 
+  function onPull(dist,component){
+
+  }
 
   return (
     <div className='w-100 h-95 bottom-0 absolute flex flex-col items-begin'>
@@ -774,13 +776,12 @@ function ControlPlane(props){
           <img src="controls.png"/>
         </div>
         <div className="w-55 h-55 absolute left-5 top-0">
-          <div className="w-0 h-0 absolute" style={{left:"5.15rem",top:"3rem"}}><TrackedHandle angle={Math.PI*0.61} color="#8c44d5ff" radius={1} maxPull={30}/></div>
-          <div className="w-0 h-0 absolute" style={{left:"7.95rem",top:"10.8rem"}}><TrackedHandle angle={Math.PI*0.61+Math.PI} color="#4a0091ff" radius={1} maxPull={30}/></div>
-          <div className="w-0 h-0 absolute" style={{left:"12.5rem",top:"2.5rem"}}><TrackedHandle angle={Math.PI*0.2} color="#00cf3aff" radius={1} maxPull={30}/></div>
-          <div className="w-0 h-0 absolute" style={{left:"1.5rem",top:"11rem"}}><TrackedHandle angle={Math.PI*1.2} color="#44ff7aff" radius={1} maxPull={30}/></div>
-          <div className="w-0 h-0 absolute" style={{left:"3.05rem",top:"4.10rem"}}><TrackedHandle angle={Math.PI*0.81} color="#18bafbff" radius={1} maxPull={30}/></div>
-          <div className="w-0 h-0 absolute" style={{left:"9.65rem",top:"8.75rem"}}><TrackedHandle angle={Math.PI*0.61} color="#58faffff" radius={1} maxPull={30}/></div>
-
+          <div className="w-0 h-0 absolute" style={{left:"5.15rem",top:"3rem"   }}><TrackedHandle callback={(factor)=>onPull(factor, 3)} angle={Math.PI*0.61}           color="#8c44d5ff" radius={1} maxPull={30}/></div>
+          <div className="w-0 h-0 absolute" style={{left:"7.95rem",top:"10.8rem"}}><TrackedHandle callback={(factor)=>onPull(factor,-3)} angle={Math.PI*0.61+Math.PI}   color="#4a0091ff" radius={1} maxPull={30}/></div>
+          <div className="w-0 h-0 absolute" style={{left:"12.5rem",top:"2.5rem" }}><TrackedHandle callback={(factor)=>onPull(factor, 1)} angle={Math.PI*0.2}            color="#00cf3aff" radius={1} maxPull={30}/></div>
+          <div className="w-0 h-0 absolute" style={{left:"1.5rem" ,top:"11rem"  }}><TrackedHandle callback={(factor)=>onPull(factor,-1)} angle={Math.PI*1.17}           color="#44ff7aff" radius={1} maxPull={30}/></div>
+          <div className="w-0 h-0 absolute" style={{left:"9.65rem",top:"8.75rem"}}><TrackedHandle callback={(factor)=>onPull(factor, 2)} angle={-Math.PI*0.17}          color="#58faffff" radius={1} maxPull={30}/></div>
+          <div className="w-0 h-0 absolute" style={{left:"3.05rem",top:"4.10rem"}}><TrackedHandle callback={(factor)=>onPull(factor,-2)} angle={Math.PI*0.83}           color="#18bafbff" radius={1} maxPull={30}/></div>
         </div>
       </div>
       <div className='w-100 h-50 rounded-tr-full bg-gray-800'></div>
@@ -801,7 +802,6 @@ export default function Home() {
     title:"",
     children:[]
   });
-  var planets = Engine.solar_system_bodies;
 
   function openMenu(pos_x,pos_y,title,children){
     menuState.current.left=pos_x;
@@ -812,7 +812,7 @@ export default function Home() {
     setMenuOpen(true);
   }
 
-  var planet_objects =planets.map(p=>{
+  var planet_objects = Engine.solar_system_bodies.map(p=>{
     return (<KeplerBody
       key = {p.name}
       CelestialObject={p}

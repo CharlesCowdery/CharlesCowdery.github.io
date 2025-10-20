@@ -20,12 +20,11 @@ export const warps = [
   {step:0,            name:"",    unit:"Pause"},
   {step:1,            name:"1",   unit:"x"},
   {step:2,            name:"2",   unit:"x"},
-  {step:10,           name:"10",  unit:"x"},
+  {step:9,           name:"9",  unit:"x"},
   {step:60,           name:"1",   unit:"Min/s"},
   {step:60*60,        name:"1",   unit:"Hr/s"},
   {step:60*60*24,     name:"1",   unit:"Day/s"},
   {step:60*60*24*30,  name:"1",   unit:"Month/s"},
-  {step:60*60*24*365, name:"1",   unit:"Year/s"},
 ]
 
 export function set_scalar(v){

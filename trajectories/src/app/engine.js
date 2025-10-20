@@ -7,13 +7,13 @@ const DAYS_PER_CENTURY = 36525.0;
 export var au_to_system_units_scalar = 1;
 export var global_offset = new Vector3(0,0,0);
 
-export var orbit_resolution = 2000;
+export var orbit_resolution = 1000;
 export const cache_scalar = 10;
 export const cache_resolution = orbit_resolution*cache_scalar;
 export const init_time = new Date();
 export const max_view = 1e3;
 export const max_camera_dist = 1e2
-export var warp_state = 2;
+export var warp_state = 1;
 export var ms_per_ms = 0;
 
 export const warps = [
@@ -36,7 +36,7 @@ export function set_warp(v){
   ms_per_ms = warps[warp_state].step;
 }
 
-set_warp(6)
+set_warp(1)
 
 class CelestialObject{
     constructor(name, size, mass, orbit_parameters, orbital_cache, render_scalar, textureURL, color  ){
@@ -62,7 +62,7 @@ class CelestialObject{
     velocity_at_timestamp(t){
       t = t-this.orbital_cache.period*Math.floor(t*this.orbital_cache.inv_period)
       if(Array.isArray(this.orbit_parameters)) return [0,0,0];
-      var delta = 1;
+      var delta = 10000;
       var p1 = this.position_at_timestamp_vec3(t);
       var p2 = this.position_at_timestamp_vec3(t+delta);
       return p2.sub(p1).divideScalar(delta).multiplyScalar(1000); // because delta is in milliseconds. jank
@@ -104,13 +104,14 @@ export function meters_to_system_units(meters){
 var solar_system_bodies_ = [];
 
 export class Conic{
-  constructor(eccentricity,scalar,adjustment,initial_true_anomaly,initial_time,gravitational_force,angular_momentum,rotation_from_xy,rotation_to_xy){
-    this.epsilon = 1e-5
+  constructor(eccentricity,scalar,adjustment,initial_true_anomaly,initial_time,gravitational_force,angular_momentum,plane_normal,rotation_from_xy,rotation_to_xy){
+    this.epsilon = 1e-7
     if(eccentricity == 1) eccentricity = 1.0001;
     this.eccentricity         = eccentricity;
     this.scalar               = scalar;
     this.adjustment           = adjustment;
     this.initial_time         = initial_time
+    this.plane_normal         = plane_normal
     this.rotation_from_xy     = rotation_from_xy;
     this.rotation_to_xy       = rotation_to_xy;
     this.gravitational_force  = gravitational_force;
@@ -194,12 +195,12 @@ export class Conic{
     return this.sample_at_true_anomaly(this.true_anomaly_at_time(t));
   }
   velocity_at_time(t){
-    var delta = 0.01
+    var delta = 2;
     var pos_at_time_1 = this.position_at_time(t);
     var pos_at_time_2 = this.position_at_time(t+delta);
     var velocity = pos_at_time_2.clone().sub(pos_at_time_1).divideScalar(delta);
-    console.log(t,t+delta,pos_at_time_1,pos_at_time_2,velocity)
-    return velocity;
+    //console.log(t,t+delta,pos_at_time_1,pos_at_time_2,velocity)
+    return velocity.multiplyScalar(1000);
   }
 
 }
@@ -213,7 +214,7 @@ export function calculate_conic(velocity, position, body_mass, body_position, bo
   var plane_normal = relative_position.clone().cross(relative_velocity).normalize();
   
   var rotation = new Quaternion().setFromUnitVectors(new Vector3(0,0,1),plane_normal)
-  var inv_rotation = rotation.invert();
+  var inv_rotation = rotation.clone().invert();
 
   var projected_position = relative_position.clone().applyQuaternion(inv_rotation);
   var projected_relative_velocity = relative_velocity_offset.clone().applyQuaternion(inv_rotation);
@@ -249,7 +250,15 @@ export function calculate_conic(velocity, position, body_mass, body_position, bo
     relative_position,
     relative_velocity,
     projected_position,
-    projected_velocity
+    projected_velocity,
+    eccentricity,
+    theta_position,
+    adjustment,
+    periapsis,
+    apoapsis,
+    specific_energy,
+    angular_momentum,
+    tangential_velocity
 })
 
   return new Conic(
@@ -260,65 +269,91 @@ export function calculate_conic(velocity, position, body_mass, body_position, bo
       signature_time,
       -term_1,
       angular_momentum,
+      plane_normal,
       rotation,
       inv_rotation
     );
 }
 
 class ConicSection{
-    constructor(conic,body,signature_time,signature_position,signature_velocity){
-        this.conic = conic;
-        this.body  = body;
-        this.signature_time = signature_time;
-        this.signature_position = signature_position;
-        this.signature_velocity = signature_velocity;
-        this.relative_signature_position 
-    }
-    calculate_origination(){
-        this.origination=null;
-        this.termination=null;
-        if(this.conic.eccentricity>=1){
-        var can_originate = true;
-        var can_terminate = false;
-        var latest_origination = -1;
-        var soonest_termination = this.conic.vec3Cache.length;
-        var position = [0,0,0]
-        var can_log = true;
-        for(let i = 0; i < this.conic.vec3Cache.length; i++){
-          var t = this.conic.cacheTime[i];
-          var body_pos = kepler_orbital_position(this.body.orbit_parameters,time_to_kepler_time(t))[0];
-          position[0] = this.conic.cache[i*3+0]+body_pos[0]*Constants.AU;
-          position[1] = this.conic.cache[i*3+1]+body_pos[1]*Constants.AU;
-          position[2] = this.conic.cache[i*3+2]+body_pos[2]*Constants.AU;
-          var nearest = fetch_strongest_pull_at_time_t(position,t);
-          if(i%100==0){
-            //console.log(t,nearest.name, position)
-          }
-          if(nearest.name!=this.body.name){
-            if(can_originate){
-              latest_origination=i;
-            }
-            if(can_terminate){
-              soonest_termination = i;
-              break;
-            }
-          } else {
-            can_originate = false;
-            can_terminate = true;
-          }
-        }
+  constructor(conic,body,signature_time,signature_position,signature_velocity){
+      this.conic = conic;
+      this.body  = body;
+      this.signature_time = signature_time;
+      this.signature_position = signature_position;
+      this.signature_velocity = signature_velocity;
+      this.relative_signature_position 
+      this.signature = Math.random()*Number.MAX_SAFE_INTEGER;
+  }
+  calculate_origination(){
+      this.origination=null;
+      this.termination=null;
+      if(this.conic.eccentricity>=1){
+      var can_originate = true;
+      var can_terminate = false;
+      var latest_origination = -1;
+      var soonest_termination = this.conic.vec3Cache.length;
+      var position = [0,0,0]
+      var can_log = true;
+      for(let i = 0; i < this.conic.vec3Cache.length; i++){
+        var t = this.conic.cacheTime[i];
+        var body_pos = this.body.position_at_timestamp(t)[0];
 
-        if(latest_origination!=-1){
-          this.origination = this.conic.cacheTime[latest_origination];
-          this.conic.minimum_bound = this.conic.true_anomaly_at_time(this.origination);
-        } 
-        if(soonest_termination!=this.conic.vec3Cache.length){
-          this.termination = this.conic.cacheTime[soonest_termination];
-          this.conic.maximum_bound = this.conic.true_anomaly_at_time(this.termination);
-        } 
-        this.conic.compute_cache(orbit_resolution*cache_scalar);
+        position[0] = this.conic.cache[i*3+0]+body_pos[0]*Constants.AU;
+        position[1] = this.conic.cache[i*3+1]+body_pos[1]*Constants.AU;
+        position[2] = this.conic.cache[i*3+2]+body_pos[2]*Constants.AU;
+        var nearest = fetch_strongest_pull_at_time_t(position,t);
+        if(i%100==0){
+          //console.log(t,nearest.name, position)
+        }
+        if(nearest.name!=this.body.name){
+          if(can_originate){
+            latest_origination=i;
+          }
+          if(can_terminate){
+            soonest_termination = i;
+            break;
+          }
+        } else {
+          can_originate = false;
+          can_terminate = true;
+        }
       }
+      if(latest_origination!=-1){
+        this.origination = this.conic.cacheTime[latest_origination];
+        this.conic.minimum_bound = this.conic.true_anomaly_at_time(this.origination);
+      } 
+      if(soonest_termination!=this.conic.vec3Cache.length){
+        this.termination = this.conic.cacheTime[soonest_termination];
+        this.conic.maximum_bound = this.conic.true_anomaly_at_time(this.termination);
+      } 
+      this.conic.compute_cache(orbit_resolution*cache_scalar);
     }
+  }
+  get_orbital_vectors_at_time(t){
+    var position = this.conic.position_at_time(t);
+    var velocity = this.conic.velocity_at_time(t);
+    var orbit_in = velocity.clone().cross(this.conic.plane_normal).normalize();
+    if(orbit_in.dot(position) > 0) orbit_in.negate();
+    var normal_up = velocity.clone().cross(orbit_in);
+    var return_obj = {}
+    return_obj.prograde = velocity.normalize();
+    return_obj.orbit_in = orbit_in.normalize();
+    return_obj.normal_up = normal_up.normalize();
+    return return_obj;
+  }
+  get_true_position_at_time(t){
+    var position = this.conic.position_at_time(t);
+    var body_position = this.body.position_at_timestamp_vec3(t).multiplyScalar(Constants.AU);
+    
+    return position.add(body_position);
+  }
+  get_true_velocity_at_time(t){
+    var velocity = this.conic.velocity_at_time(t);
+    var body_velocity = this.body.velocity_at_timestamp_vec3(t).multiplyScalar(Constants.AU);
+    console.log(velocity,body_velocity)
+    return velocity.clone().add(body_velocity);
+  }
 }
 
 function fetch_strongest_pull_at_time_t(position,t){
@@ -343,7 +378,7 @@ export function calculate_conic_path(signature_position,signature_velocity,signa
     var body_position = body.position_at_timestamp_vec3(signature_time).multiplyScalar(Constants.AU);
     var body_velocity = body.velocity_at_timestamp_vec3(signature_time).multiplyScalar(Constants.AU);
 
-    console.log(signature_velocity,body_velocity)
+    //console.log(signature_velocity,body_velocity)
 
     var conic = calculate_conic(
       new Vector3(...signature_velocity),
@@ -353,20 +388,25 @@ export function calculate_conic_path(signature_position,signature_velocity,signa
       body_velocity,
       signature_time
     );
+
+
     var section = new ConicSection(conic,body,signature_time,signature_position,signature_velocity);
+    //console.log(section.termination);
     section.calculate_origination();
-    section.calculate_origination();
+
+        //console.log(section.termination);
     path.push(section);
     if(section.termination == null) break;
     signature_time = section.termination;
-    console.log(signature_time);
+    //signature_time=0;
+    //console.log(signature_time);
     body_position = body.position_at_timestamp_vec3(signature_time).multiplyScalar(Constants.AU);
     body_velocity = body.velocity_at_timestamp_vec3(signature_time).multiplyScalar(Constants.AU);
     signature_position = section.conic.position_at_time(signature_time).add(body_position);
     signature_velocity = section.conic.velocity_at_time(signature_time).add(body_velocity);
-    
+    //console.log(signature_velocity)
   }
-  console.log(path);
+  //console.log(path);
 
   return path;
 }
@@ -550,7 +590,7 @@ export function mean_to_true_anomaly(mean_anomaly,eccentricity){
     var delta_mean_anomaly = 0;
 
     var i = 0;
-    while(Math.abs(delta_anomaly)>1e-10 && i<10000){
+    while(Math.abs(delta_anomaly)>1e-14 && i<10000){
         delta_mean_anomaly = (mean_anomaly-(anomaly-eccentricity*Math.sin(anomaly)));
         delta_anomaly = delta_mean_anomaly/(1-eccentricity*Math.cos(anomaly));
         anomaly = delta_anomaly+anomaly;
@@ -589,7 +629,7 @@ export function mean_hyperbolic_to_true_anomaly(hyperbolic_mean_anomaly,eccentri
     var delta_mean_hyperbolic_anomaly = 0;
     var i = 0;
     
-    while(Math.abs(delta_hyperbolic_anomaly)>1e-10 && i<100){
+    while(Math.abs(delta_hyperbolic_anomaly)>1e-14 && i<100){
         delta_mean_hyperbolic_anomaly = hyperbolic_mean_anomaly+hyperbolic_anomaly-eccentricity*Math.sinh(hyperbolic_anomaly);
         delta_hyperbolic_anomaly = delta_mean_hyperbolic_anomaly/(1+eccentricity*Math.cosh(hyperbolic_anomaly));
         hyperbolic_anomaly = delta_hyperbolic_anomaly+hyperbolic_anomaly;

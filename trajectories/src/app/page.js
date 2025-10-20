@@ -3,6 +3,8 @@ import React, {  useEffect, useImperativeHandle, forwardRef, useMemo, useRef, us
 import { useThree, useLoader, Canvas, useFrame } from '@react-three/fiber'
 import { CatmullRomCurve3, Raycaster, Vector3, Quaternion,} from 'three'
 import * as THREE from "three"
+import * as DREI from "@react-three/drei"
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { OrbitControls, useTexture, Line, Html } from '@react-three/drei'
 import {EffectComposer, Bloom} from "@react-three/postprocessing"
 import * as Engine from "./engine"
@@ -86,7 +88,7 @@ function Curve(props) {
     const curve = new CatmullRomCurve3(props.points);
     const samples = curve.getPoints(1000);
     setPositions(new Float32Array(samples.flatMap(p=>[p.x,p.y,p.z])));
-  },[props.points])
+  },[props.signature])
 
   var buffer = {};
   if(props.points.length>0){
@@ -98,17 +100,19 @@ function Curve(props) {
   }
 
   useFrame(()=>{
-    if(props.ref?.current){
-      if(props.ref.current.length>props.id){
-        displayRef.current.position.copy(props.ref.current[props.id]);
-        hitboxRef.current.position.copy(props.ref.current[props.id]);
+    if(props.propRef?.current){
+      if(props.propRef.current.length>props.id){
+        if(props.propRef.current[props.id].position){
+          displayRef.current.position.copy(props.propRef.current[props.id].position);
+          hitboxRef.current.position.copy(props.propRef.current[props.id].position);
+        }
       }
     }
   })
 
   var curve = useMemo(()=>{
     return new THREE.CatmullRomCurve3(props.points)
-  },props.points)
+  },[props.signature])
 
   function handleHover(e){
     var pos = e.pointOnLine;
@@ -131,14 +135,15 @@ function Curve(props) {
     </sprite>
   )
 
-
+  if(displayRef.current){
+  }
   //var points = useMemo(()=>points.flatMap(p=>[p.x,p.y,p.z]),[points]);
 
   return (positions.length) ? (
     <group>
       <Line
         ref={displayRef}
-        points={props.points}
+        points={props.points??props.propRef.current[props.id].points}
         color = {hovered?"red":props.color}
         onPointerOver = {()=>{setHovered(true)}}
         onPointerOut = {()=>{setHovered(false)}}
@@ -316,7 +321,6 @@ function KeplerBody(props){
 
     props.onMenuOpen(screenX,screenY,celestial_body.name,[
       <ContextMenuOption title="focus camera" onClick={focusCamera} key={1}/>,
-      <ContextMenuOption title="target" key={2}/>
     ])
   }
 
@@ -360,25 +364,49 @@ function KeplerBody(props){
 function ConicBody(props,texture){
   const spriteRef = useRef();
   const curveRef = useRef([]);
+  const conic_path = useRef();
+  const prev_signatures = useRef({signature_time:-1,signature_position:[],signature_velocity:[]});
+  const [lastUpdate,setLastUpdate] = useState(0);
+  const needsUpdate = useRef(false);
 
-  var conic_path = useMemo(()=>{
-    return Engine.calculate_conic_path(
-      props.signature_position,
-      props.signature_velocity,
-      props.signature_time
-    )
-  },[...props.signature_position,...props.signature_velocity,props.signature_time])
+  if(!props.ref.current) props.ref.current = {}
 
   var sprite = useTexture(props.textureURL)
   useFrame(()=>{
+    if(prev_signatures.current?.signature_time!=props.ref.current?.signature_time){
+      if(props.ref.current){
+        conic_path.current = Engine.calculate_conic_path(
+          props.ref.current.signature_position,
+          props.ref.current.signature_velocity,
+          props.ref.current.signature_time
+        )
+        prev_signatures.current.signature_time     = props.ref.current.signature_time;
+        prev_signatures.current.signature_position = props.ref.current.signature_position;
+        prev_signatures.current.signature_velocity = props.ref.current.signature_velocity;
+        needsUpdate.current = true;
+        //console.log(
+        //  props.ref.current.signature_time,
+        //  props.ref.current.signature_position,
+        //  props.ref.current.signature_velocity
+        //)
+      }
+    }
+    if(!conic_path.current) return;
     if(spriteRef.current){
       //ref.current.position.copy(new Vector3(...props.signature_position.map(v=>v/Constants.AU*Engine.au_to_system_units_scalar)))
       var section_index = 0;
       var section;
-      for(section_index = 0; section_index < conic_path.length; section_index++){
-        section = conic_path[section_index];
-        if(section.termination == null) break;
-        if(props.timestamp.current < section.termination) break;
+      for(section_index = 0; section_index < conic_path.current.length; section_index++){
+        section = conic_path.current[section_index];
+        props.ref.current.section = section;
+        if(section.termination == null || props.timestamp.current < section.termination){
+          if(section_index!=0){
+            props.ref.current.signature_time = section.signature_time;
+            props.ref.current.signature_velocity = section.signature_velocity;
+            props.ref.current.signature_position = section.signature_position;
+          }
+          break;
+        };
       }
       var orbit_position = section.conic.position_at_time(props.timestamp.current).multiplyScalar(Engine.meters_to_system_units_scalar);
 
@@ -390,32 +418,63 @@ function ConicBody(props,texture){
 
       spriteRef.current.position.copy(orbit_position);
       if(curveRef?.current){
-        for(let i = 0; i < conic_path.length; i++){
-          var segment = conic_path[i];
+        for(let i = 0; i < conic_path.current.length; i++){
+          var segment = conic_path.current[i];
           var body_position = segment.body.position_at_timestamp_vec3(props.timestamp.current);
           if(curveRef.current.length<i+1){
-            curveRef.current.push(new Vector3());
+            curveRef.current.push({position:new Vector3(),points:[]});
           }
-          curveRef.current[i].copy(body_position);
+          curveRef.current[i].position.copy(body_position);
+        }
+        if(needsUpdate.current){
+          var time = new Date().getTime();
+          var delta = time-lastUpdate;
+          if(delta > 100){
+            setLastUpdate(time);
+            needsUpdate.current = false;
+          }
         }
       } 
+      if(props.ref.current?.acceleration){
+        var total_val = props.ref.current.acceleration.reduce((a,v)=>a+v);
+        if(Math.abs(total_val)>1e-4){
+          var vectors = section.get_orbital_vectors_at_time(props.timestamp.current);
+          var components = props.ref.current.acceleration;
+          var prograde = vectors.prograde.clone().multiplyScalar(components[0]);
+          var orbit = vectors.orbit_in.clone().multiplyScalar(components[1]);
+          var normal = vectors.normal_up.clone().multiplyScalar(components[2]);
+          var total = prograde.clone().add(orbit).add(normal);
+
+          var prev_position = props.ref.current.signature_position
+          var new_position = section.get_true_position_at_time(props.timestamp.current).toArray(); 
+          var prev_velocity = section.get_true_velocity_at_time(props.timestamp.current)
+          var new_velocity = prev_velocity.clone().add(total.multiplyScalar(1e-10)).toArray();
+
+          props.ref.current.signature_time = props.timestamp.current;
+          props.ref.current.signature_position = new_position;
+          props.ref.current.signature_velocity =new_velocity;
+          console.log(prev_velocity);
+        }
+      }
     }
   })
 
   var curves = [];
-  for(let i = 0; i < conic_path.length; i++){
-    var curve = (
-      <Curve
-      ref={curveRef}
-      points = {conic_path[i].conic.vec3Cache}
-      color="#aaaaff"
-      id = {i}
-      key={i}
-    />
-    )
-    curves.push(curve);
+  if(conic_path.current){
+    for(let i = 0; i < conic_path.current.length; i++){
+      var curve = (
+        <Curve
+          propRef={curveRef}
+          points = {conic_path.current[i].conic.vec3Cache}
+          color="#aaaaff"
+          id = {i}
+          key= {i}
+          signature={conic_path.current[i].signature+lastUpdate}
+        />
+      )
+      curves.push(curve);
+    }
   }
-
   return (<group>
     
     {curves}
@@ -727,6 +786,7 @@ function TrackedHandle(props){
       delta.x = -delta.x;
       var dist=-delta.dot(direction_vector)/(direction_vector.length()**2);
       dist = Math.min(Math.max(0,dist),props.maxPull);
+      if(dist<0) dist = -dist;
       setDist(dist);
     }
   }
@@ -765,17 +825,19 @@ function TrackedHandle(props){
 
 function ControlPlane(props){
 
-  function onPull(dist,component){
-
+  function onPull(factor,component){
+    var comp = Math.abs(component)-1;
+    var val = Math.sign(component)*factor*10;
+    props.rocketRef.current.acceleration[comp]=val
   }
 
   return (
-    <div className='w-100 h-95 bottom-0 absolute flex flex-col items-begin'>
-      <div className='w-65 h-55 rounded-tr-[6em] bg-gray-800 flex items-end justify-center relative'>
+    <div className='w-100 h-60 bottom-0 absolute flex flex-col items-begin'>
+      <div className='w-65 h-60 rounded-tr-[6em] bg-gray-800 flex items-end justify-center relative'>
         <div className="w-55 h-55 rounded-full bg-[#fff] flex items-center justify-center">
           <img src="controls.png"/>
         </div>
-        <div className="w-55 h-55 absolute left-5 top-0">
+        <div className="w-55 h-55 absolute left-5 top-5">
           <div className="w-0 h-0 absolute" style={{left:"5.15rem",top:"3rem"   }}><TrackedHandle callback={(factor)=>onPull(factor, 3)} angle={Math.PI*0.61}           color="#8c44d5ff" radius={1} maxPull={30}/></div>
           <div className="w-0 h-0 absolute" style={{left:"7.95rem",top:"10.8rem"}}><TrackedHandle callback={(factor)=>onPull(factor,-3)} angle={Math.PI*0.61+Math.PI}   color="#4a0091ff" radius={1} maxPull={30}/></div>
           <div className="w-0 h-0 absolute" style={{left:"12.5rem",top:"2.5rem" }}><TrackedHandle callback={(factor)=>onPull(factor, 1)} angle={Math.PI*0.2}            color="#00cf3aff" radius={1} maxPull={30}/></div>
@@ -784,7 +846,6 @@ function ControlPlane(props){
           <div className="w-0 h-0 absolute" style={{left:"3.05rem",top:"4.10rem"}}><TrackedHandle callback={(factor)=>onPull(factor,-2)} angle={Math.PI*0.83}           color="#18bafbff" radius={1} maxPull={30}/></div>
         </div>
       </div>
-      <div className='w-100 h-50 rounded-tr-full bg-gray-800'></div>
     </div>
   )
 }
@@ -796,6 +857,12 @@ export default function Home() {
   const cameraFocusRef = useRef({position:new Vector3(0,0,0)});
   const applyCameraRefocus = useRef(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const rocketRef = useRef({
+    signature_position:[-2.7e10,1.445e11,0],
+    signature_velocity:[-31000,-5000,0],
+    signature_time:0.036,
+    acceleration:[0,0,0] //note this is prograde, orbital in, normal up NOT XYZ
+  });
   const menuState = useRef({
     left:0,
     top:0,
@@ -839,7 +906,7 @@ export default function Home() {
           }
           <Clock ref={clockRef}/>
           <div className="min-h-screen w-0 absolute" >
-            <ControlPlane/>
+            <ControlPlane rocketRef={rocketRef} timestamp={timestamp}/>
           </div>
         </div>
         <Canvas>
@@ -863,7 +930,7 @@ export default function Home() {
           <spotLight position={[0,0,0]} angle={0.15} penumbra={1} decay={0} intensity={Math.PI} />
           <pointLight position={[0, 0, 0]} decay={0} intensity={Math.PI*4} />
           {planet_objects}
-          <ConicBody signature_position = {[-2.7e10,1.445e11,0]} signature_velocity={[-33000,-5000,0]} signature_time={0} timestamp={timestamp} textureURL = "vercel.svg"/>
+          <ConicBody ref={rocketRef} timestamp={timestamp} textureURL = "vercel.svg"/>
           <ZUp/>
           <OrbitControls 
           enablePan={false}
